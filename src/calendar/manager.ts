@@ -113,7 +113,9 @@ export class CalendarManager {
 		this.events.emit("refresh:started", { calendarId: cal.id });
 
 		try {
-			const result = await fetchICS(cal.url);
+			const settings = this.getSettings();
+			const timeoutMs = settings.requestTimeoutSeconds * 1000;
+			const result = await fetchICS(cal.url, { timeoutMs });
 			const now = new Date();
 			const todayStart = startOfToday(now);
 			const windowStart = new Date(
