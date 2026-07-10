@@ -201,6 +201,9 @@ export class MeetingsPlusSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 					this.plugin.manager.onSettingsChanged();
 				});
+				t.inputEl.addEventListener("blur", () => {
+					t.setValue(String(this.plugin.settings[key]));
+				});
 			});
 	}
 }
