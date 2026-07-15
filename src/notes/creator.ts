@@ -1,7 +1,7 @@
-import { App, Notice, TFile, normalizePath } from "obsidian";
+import { App, Notice, TFile, moment, normalizePath } from "obsidian";
 import { CalendarConfig, Meeting } from "../types";
 import { renderTemplate, sanitizeFilename } from "./template";
-import { findExistingNote } from "./duplicate-detector";
+import { findExistingNote, findNoteByUid } from "./duplicate-detector";
 import { runTemplaterIfAvailable } from "../integrations/templater";
 import { ensureDailyNote } from "./daily-note";
 
@@ -23,6 +23,48 @@ export async function createOrOpenMeetingNote(
 	if (existing) {
 		await openFile(app, existing, opts.openInNewPane);
 		return existing;
+	}
+
+	// Rescheduled-meeting fallback: same UID, different start date.
+	// Only fires when exactly one note carries this UID (non-recurring).
+	const rescheduled = findNoteByUid(app, meeting.uid);
+	if (rescheduled) {
+		// 1. Update frontmatter
+		await app.fileManager.processFrontMatter(rescheduled, (fm) => {
+			fm["meeting_dedup_key"] = meeting.dedupKey;
+			fm["date"] = moment(meeting.start).format("YYYY-MM-DD");
+			fm["start"] = moment(meeting.start).format("HH:mm");
+			fm["end"] = moment(meeting.end).format("HH:mm");
+		});
+
+		// 2. Update the date/time line in the note body (format: "YYYY-MM-DD · HH:mm–HH:mm · location")
+		const newWhenLine = `${moment(meeting.start).format("YYYY-MM-DD")} · ${moment(meeting.start).format("HH:mm")}–${moment(meeting.end).format("HH:mm")} · ${meeting.location}`;
+		const bodyBefore = await app.vault.read(rescheduled);
+		const bodyAfter = bodyBefore.replace(
+			/^\d{4}-\d{2}-\d{2} · \d{2}:\d{2}–\d{2}:\d{2} · .*$/m,
+			newWhenLine
+		);
+		if (bodyAfter !== bodyBefore) {
+			await app.vault.modify(rescheduled, bodyAfter);
+		}
+
+		// 3. Rename file to match new date (updates backlinks automatically)
+		const newTitle = renderTemplate(calendar.titlePattern, {
+			meeting,
+			calendar,
+		});
+		const newBaseName = sanitizeFilename(newTitle) || "Untitled meeting";
+		const folder = rescheduled.parent?.path ?? "";
+		const newPath = joinPath(folder, `${newBaseName}.md`);
+		if (newPath !== rescheduled.path) {
+			await app.fileManager.renameFile(rescheduled, newPath);
+		}
+
+		new Notice(
+			`Meetings Plus: found rescheduled note for "${meeting.title}"`
+		);
+		await openFile(app, rescheduled, opts.openInNewPane);
+		return rescheduled;
 	}
 
 	switch (calendar.noteDestination) {
