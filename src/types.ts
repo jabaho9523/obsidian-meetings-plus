@@ -40,6 +40,8 @@ export interface Meeting {
 	dedupKey: string;
 	/** ICS UID (may repeat across recurrences) */
 	uid: string;
+	/** Whether this meeting is an occurrence of a recurring event */
+	recurring: boolean;
 	/** Which calendar this meeting came from */
 	calendarId: string;
 	/** Meeting title (ICS SUMMARY) */

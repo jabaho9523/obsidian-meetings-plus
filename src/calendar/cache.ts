@@ -55,6 +55,7 @@ function serialize(m: Meeting): SerializedMeeting {
 	return {
 		dedupKey: m.dedupKey,
 		uid: m.uid,
+		recurring: m.recurring,
 		calendarId: m.calendarId,
 		title: m.title,
 		start: m.start.toISOString(),
@@ -72,6 +73,9 @@ function deserialize(s: SerializedMeeting): Meeting {
 	return {
 		dedupKey: s.dedupKey,
 		uid: s.uid,
+		// Entries cached before the flag existed: assume recurring so the
+		// reschedule fallback stays off until the next refresh re-parses.
+		recurring: s.recurring ?? true,
 		calendarId: s.calendarId,
 		title: s.title,
 		start: new Date(s.start),

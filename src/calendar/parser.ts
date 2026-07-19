@@ -11,6 +11,10 @@ const MEETING_URL_PATTERNS: RegExp[] = [
 const GENERIC_URL = /https?:\/\/[^\s"'<>]+/i;
 
 const MAX_RECURRENCE_OCCURRENCES = 500;
+// Unseeded iterators start at DTSTART, so a years-old daily event can have
+// thousands of pre-window occurrences to skip. Skips are bounded separately
+// from emitted occurrences so old events don't exhaust the budget (PR #9).
+const MAX_RECURRENCE_ITERATIONS = 10_000;
 
 /**
  * Microsoft/Outlook uses proprietary timezone labels that ical.js does not
@@ -162,8 +166,13 @@ export function parseICS(ics: string, opts: ParseOptions): Meeting[] {
 			// The existing `end <= windowStart` filter below handles skipping
 			// past occurrences correctly without perturbing the epoch.
 			const iter = event.iterator();
-			let count = 0;
-			while (count < MAX_RECURRENCE_OCCURRENCES) {
+			let emitted = 0;
+			let iterations = 0;
+			while (
+				emitted < MAX_RECURRENCE_OCCURRENCES &&
+				iterations < MAX_RECURRENCE_ITERATIONS
+			) {
+				iterations++;
 				const next = iter.next();
 				if (!next) break;
 				let start: Date;
@@ -187,10 +196,7 @@ export function parseICS(ics: string, opts: ParseOptions): Meeting[] {
 					start = next.toJSDate();
 					end = new Date(start.getTime() + masterDurationMs);
 				}
-				if (overrideCancelled) {
-					count++;
-					continue;
-				}
+				if (overrideCancelled) continue;
 				// Safety net: if the recurrence iterator dropped the time-of-day
 				// (returns midnight) but the master event has a real start time,
 				// restore it. Catches unmapped timezone labels.
@@ -200,18 +206,29 @@ export function parseICS(ics: string, opts: ParseOptions): Meeting[] {
 					start.getMinutes() === 0 &&
 					(masterHours !== 0 || masterMinutes !== 0)
 				) {
-					const fixed = new Date(start);
+					// A timed occurrence landing on local midnight is an
+					// artifact of DST offset math — the UTC components still
+					// hold the correct calendar day (issue #15). A date-only
+					// occurrence is already on the correct local day.
+					const fixed = next.isDate
+						? new Date(
+								start.getFullYear(),
+								start.getMonth(),
+								start.getDate()
+							)
+						: new Date(
+								start.getUTCFullYear(),
+								start.getUTCMonth(),
+								start.getUTCDate()
+							);
 					fixed.setHours(masterHours, masterMinutes, 0, 0);
 					const shiftMs = fixed.getTime() - start.getTime();
 					start = fixed;
 					end = new Date(end.getTime() + shiftMs);
 				}
 				if (start >= windowEnd) break;
-				if (end <= windowStart) {
-					count++;
-					continue;
-				}
-				count++;
+				if (end <= windowStart) continue;
+				emitted++;
 				const meeting = buildMeeting(event, start, end, calendar);
 				if (acceptable(meeting, calendar, seen)) meetings.push(meeting);
 			}
@@ -279,6 +296,7 @@ function buildMeeting(
 	return {
 		dedupKey,
 		uid: event.uid,
+		recurring: event.isRecurring(),
 		calendarId: calendar.id,
 		title,
 		start,
