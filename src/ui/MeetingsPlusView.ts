@@ -18,7 +18,6 @@ import { renderStatusHeader } from "./components/status-header";
 import { renderCurrentMeeting } from "./components/current-meeting";
 
 const IMMINENT_WINDOW_MS = 10 * 60 * 1000;
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 export class MeetingsPlusView extends ItemView {
 	private earlierTodayCollapsed = true;
@@ -97,7 +96,7 @@ export class MeetingsPlusView extends ItemView {
 		const now = Date.now();
 		const today = startOfDay(new Date(now));
 		const todayKey = dayKey(today);
-		const minKey = dayKey(new Date(today.getTime() - lookBack * DAY_MS));
+		const minKey = dayKey(new Date(today.getFullYear(), today.getMonth(), today.getDate() - lookBack));
 		if (this.focusedDay < minKey) this.focusedDay = minKey;
 
 		// daysWithMeetings is computed lazily below; pre-compute now for the
@@ -183,7 +182,7 @@ export class MeetingsPlusView extends ItemView {
 		let renderedAny = false;
 
 		for (let i = 0; i < lookAhead; i++) {
-			const date = new Date(focusedDate.getTime() + i * DAY_MS);
+			const date = new Date(focusedDate.getFullYear(), focusedDate.getMonth(), focusedDate.getDate() + i);
 			const key = dayKey(date);
 			const dayMeetings = byDay.get(key) ?? [];
 			const isFocusedDay = i === 0;
@@ -535,12 +534,12 @@ function dateFromKey(k: string): Date {
 }
 
 function isTomorrow(d: Date, today: Date): boolean {
-	const tomorrow = new Date(today.getTime() + DAY_MS);
+	const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
 	return dayKey(d) === dayKey(tomorrow);
 }
 
 function isYesterday(d: Date, today: Date): boolean {
-	const yesterday = new Date(today.getTime() - DAY_MS);
+	const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
 	return dayKey(d) === dayKey(yesterday);
 }
 

@@ -2,7 +2,6 @@ import { moment, setIcon } from "obsidian";
 import { CalendarConfig, CalendarStatus } from "../../types";
 import { DatePicker } from "./date-picker";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_DAYS = 180;
 
 export interface StatusHeaderOptions {
@@ -69,7 +68,7 @@ function renderDateBar(parent: HTMLElement, opts: StatusHeaderOptions): void {
 	if (opts.focusedDay <= opts.minDay) prev.setAttribute("disabled", "true");
 	prev.addEventListener("click", () => {
 		if (opts.focusedDay <= opts.minDay) return;
-		const next = new Date(focusedDate.getTime() - DAY_MS);
+		const next = new Date(focusedDate.getFullYear(), focusedDate.getMonth(), focusedDate.getDate() - 1);
 		opts.onPickDay(keyFromDate(next));
 	});
 
@@ -102,7 +101,7 @@ function renderDateBar(parent: HTMLElement, opts: StatusHeaderOptions): void {
 	});
 	setIcon(next, "chevron-right");
 	next.addEventListener("click", () => {
-		const np = new Date(focusedDate.getTime() + DAY_MS);
+		const np = new Date(focusedDate.getFullYear(), focusedDate.getMonth(), focusedDate.getDate() + 1);
 		opts.onPickDay(keyFromDate(np));
 	});
 
