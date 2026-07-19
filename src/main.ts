@@ -212,6 +212,7 @@ export default class MeetingsPlusPlugin extends Plugin {
 				app: this.app,
 				calendars: this.settings.calendars,
 				meetings: this.manager.getAllMeetings(),
+				timeFormat: this.settings.timeFormat,
 			});
 		} catch (e) {
 			console.warn("[Meetings Plus] daily note update failed", e);
@@ -231,6 +232,7 @@ function migrateCalendar(c: unknown): import("./types").CalendarConfig {
 	if (
 		noteDestination === "file" ||
 		noteDestination === "daily-note" ||
+		noteDestination === "daily-note-event-date" ||
 		noteDestination === "none"
 	) {
 		destination = noteDestination;

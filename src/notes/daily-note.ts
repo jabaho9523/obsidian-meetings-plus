@@ -1,6 +1,7 @@
 import { App, TFile, moment, normalizePath } from "obsidian";
-import { CalendarConfig, Meeting } from "../types";
+import { CalendarConfig, Meeting, TimeFormat } from "../types";
 import { findExistingNote } from "./duplicate-detector";
+import { formatMeetingTime } from "../util/time";
 
 const BLOCK_START = "<!-- meetings-plus:start -->";
 const BLOCK_END = "<!-- meetings-plus:end -->";
@@ -20,10 +21,11 @@ export interface UpdateOptions {
 	app: App;
 	calendars: CalendarConfig[];
 	meetings: Meeting[];
+	timeFormat: TimeFormat;
 }
 
 export async function updateDailyNote(opts: UpdateOptions): Promise<void> {
-	const { app, calendars, meetings } = opts;
+	const { app, calendars, meetings, timeFormat } = opts;
 
 	const eligibleCalendarIds = new Set(
 		calendars
@@ -53,19 +55,23 @@ export async function updateDailyNote(opts: UpdateOptions): Promise<void> {
 	}
 
 	const original = await app.vault.read(file);
-	const next = replaceBlock(original, buildBlock(app, todays));
+	const next = replaceBlock(original, buildBlock(app, todays, timeFormat));
 	if (next !== original) {
 		await app.vault.modify(file, next);
 	}
 }
 
-function buildBlock(app: App, meetings: Meeting[]): string {
+function buildBlock(
+	app: App,
+	meetings: Meeting[],
+	timeFormat: TimeFormat
+): string {
 	const lines: string[] = [BLOCK_START, "## Today's meetings", ""];
 	if (meetings.length === 0) {
 		lines.push("- No meetings today.");
 	} else {
 		for (const m of meetings) {
-			const time = moment(m.start).format("HH:mm");
+			const time = formatMeetingTime(m.start, timeFormat);
 			const existing = findExistingNote(app, m.dedupKey);
 			if (existing) {
 				lines.push(`- **${time}** [[${existing.basename}]]`);
@@ -90,11 +96,14 @@ function replaceBlock(content: string, block: string): string {
 	return `${content}${sep}\n${block}\n`;
 }
 
-export async function ensureDailyNote(app: App): Promise<TFile | null> {
+export async function ensureDailyNote(
+	app: App,
+	date: Date = new Date()
+): Promise<TFile | null> {
 	const settings = getDailyNotesSettings(app);
 	const format = settings?.format || "YYYY-MM-DD";
 	const folder = (settings?.folder ?? "").trim();
-	const filename = moment().format(format);
+	const filename = moment(date).format(format);
 	const path = normalizePath(
 		folder ? `${folder}/${filename}.md` : `${filename}.md`
 	);

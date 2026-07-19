@@ -1,6 +1,7 @@
 import { App, PluginSettingTab, Setting, setIcon } from "obsidian";
 import MeetingsPlusPlugin from "./main";
 import { DEFAULT_SETTINGS, makeDefaultCalendar } from "./settings";
+import { TimeFormat } from "./types";
 import { CalendarEditorModal } from "./ui/calendar-editor-modal";
 import { generateId } from "./util/id";
 
@@ -39,6 +40,21 @@ export class MeetingsPlusSettingTab extends PluginSettingTab {
 			"How long to wait for a calendar feed to respond before timing out.",
 			"requestTimeoutSeconds"
 		);
+		new Setting(containerEl)
+			.setName("Time format")
+			.setDesc(
+				"How meeting times are displayed in the sidebar and the daily-note meeting list."
+			)
+			.addDropdown((d) => {
+				d.addOption("24h", "24-hour (13:00)");
+				d.addOption("12h", "12-hour (1:00 PM)");
+				d.setValue(this.plugin.settings.timeFormat);
+				d.onChange(async (v) => {
+					this.plugin.settings.timeFormat = v as TimeFormat;
+					await this.plugin.saveSettings();
+					this.plugin.manager.onSettingsChanged();
+				});
+			});
 		this.numberField(
 			"Look-ahead window (days)",
 			"How many days of future meetings to load.",

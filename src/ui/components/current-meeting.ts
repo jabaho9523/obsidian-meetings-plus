@@ -1,17 +1,19 @@
-import { moment, setIcon } from "obsidian";
-import { CalendarConfig, Meeting } from "../../types";
+import { setIcon } from "obsidian";
+import { CalendarConfig, Meeting, TimeFormat } from "../../types";
+import { formatMeetingTime } from "../../util/time";
 
 export interface CurrentMeetingOptions {
 	parent: HTMLElement;
 	meeting: Meeting;
 	calendar: CalendarConfig | undefined;
 	hasNote: boolean;
+	timeFormat: TimeFormat;
 	onOpenNote: (meeting: Meeting) => void;
 	onOpenLink: ((meeting: Meeting) => void) | null;
 }
 
 export function renderCurrentMeeting(opts: CurrentMeetingOptions): void {
-	const { meeting, calendar, hasNote } = opts;
+	const { meeting, calendar, hasNote, timeFormat } = opts;
 	const card = opts.parent.createDiv({ cls: "meetings-plus-current" });
 
 	const top = card.createDiv({ cls: "meetings-plus-current-top" });
@@ -19,8 +21,8 @@ export function renderCurrentMeeting(opts: CurrentMeetingOptions): void {
 	if (calendar) dot.style.background = calendar.color;
 
 	const info = top.createDiv({ cls: "meetings-plus-current-info" });
-	const startLabel = moment(meeting.start).format("HH:mm");
-	const endLabel = moment(meeting.end).format("HH:mm");
+	const startLabel = formatMeetingTime(meeting.start, timeFormat);
+	const endLabel = formatMeetingTime(meeting.end, timeFormat);
 	const now = Date.now();
 	const status =
 		meeting.start.getTime() <= now

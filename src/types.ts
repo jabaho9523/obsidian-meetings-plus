@@ -6,7 +6,13 @@ import { TFile } from "obsidian";
  * - "daily-note": appended as a section inside today's daily note
  * - "none": disabled — clicking just opens the meeting link if there is one
  */
-export type NoteDestination = "file" | "daily-note" | "none";
+export type NoteDestination =
+	| "file"
+	| "daily-note"
+	| "daily-note-event-date"
+	| "none";
+
+export type TimeFormat = "24h" | "12h";
 
 export interface CalendarConfig {
 	/** Stable internal ID, generated when calendar is added */

@@ -166,6 +166,10 @@ export class CalendarEditorModal extends Modal {
 			.addDropdown((d) => {
 				d.addOption("file", "Standalone file");
 				d.addOption("daily-note", "Today's daily note (as section)");
+				d.addOption(
+					"daily-note-event-date",
+					"Daily note of the event's date (as section)"
+				);
 				d.addOption("none", "Don't create notes");
 				d.setValue(this.working.noteDestination);
 				d.onChange((v) => {

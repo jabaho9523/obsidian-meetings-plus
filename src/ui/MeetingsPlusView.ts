@@ -169,6 +169,7 @@ export class MeetingsPlusView extends ItemView {
 					meeting: current,
 					calendar: calIndex.get(current.calendarId),
 					hasNote: this.hasNote(current),
+					timeFormat: this.plugin.settings.timeFormat,
 					onOpenNote: (m) => this.activate(m),
 					onOpenLink: current.meetingUrl
 						? (m) => this.openLink(m)
@@ -336,6 +337,7 @@ export class MeetingsPlusView extends ItemView {
 				meeting,
 				calendar: calIndex.get(meeting.calendarId),
 				hasNote: this.hasNote(meeting),
+				timeFormat: this.plugin.settings.timeFormat,
 				onActivate: (m) => this.activate(m),
 				onContextMenu: (m, evt) => this.showContextMenu(m, evt),
 			});
@@ -380,6 +382,7 @@ export class MeetingsPlusView extends ItemView {
 				meeting,
 				calendar: calIndex.get(meeting.calendarId),
 				hasNote: this.hasNote(meeting),
+				timeFormat: this.plugin.settings.timeFormat,
 				onActivate: (m) => this.activate(m),
 				onContextMenu: (m, evt) => this.showContextMenu(m, evt),
 			});

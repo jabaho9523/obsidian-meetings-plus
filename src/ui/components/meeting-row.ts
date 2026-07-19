@@ -1,17 +1,19 @@
-import { Menu, moment, setIcon } from "obsidian";
-import { CalendarConfig, Meeting } from "../../types";
+import { Menu, setIcon } from "obsidian";
+import { CalendarConfig, Meeting, TimeFormat } from "../../types";
+import { formatMeetingTime } from "../../util/time";
 
 export interface MeetingRowOptions {
 	parent: HTMLElement;
 	meeting: Meeting;
 	calendar: CalendarConfig | undefined;
 	hasNote: boolean;
+	timeFormat: TimeFormat;
 	onActivate: (meeting: Meeting) => void;
 	onContextMenu: (meeting: Meeting, evt: MouseEvent) => void;
 }
 
 export function renderMeetingRow(opts: MeetingRowOptions): void {
-	const { meeting, calendar, hasNote } = opts;
+	const { meeting, calendar, hasNote, timeFormat } = opts;
 	const row = opts.parent.createDiv({ cls: "meetings-plus-row" });
 	if (hasNote) row.addClass("meetings-plus-row-has-note");
 
@@ -22,8 +24,8 @@ export function renderMeetingRow(opts: MeetingRowOptions): void {
 	if (meeting.allDay) {
 		time.setText("All-day");
 	} else {
-		const startLabel = moment(meeting.start).format("HH:mm");
-		const endLabel = moment(meeting.end).format("HH:mm");
+		const startLabel = formatMeetingTime(meeting.start, timeFormat);
+		const endLabel = formatMeetingTime(meeting.end, timeFormat);
 		time.setText(`${startLabel}–${endLabel}`);
 	}
 

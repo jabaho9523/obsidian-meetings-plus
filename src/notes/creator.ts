@@ -83,6 +83,7 @@ export async function createOrOpenMeetingNote(
 			);
 			return null;
 		case "daily-note":
+		case "daily-note-event-date":
 			return appendToDailyNoteSection(opts);
 		case "file":
 		default:
@@ -130,10 +131,14 @@ async function appendToDailyNoteSection(
 	opts: CreateOptions
 ): Promise<TFile | null> {
 	const { app, meeting, calendar } = opts;
-	const file = await ensureDailyNote(app);
+	const noteDate =
+		calendar.noteDestination === "daily-note-event-date"
+			? meeting.start
+			: new Date();
+	const file = await ensureDailyNote(app, noteDate);
 	if (!file) {
 		new Notice(
-			"Could not create or open today's daily note. Check the daily notes core plugin settings."
+			"Could not create or open the daily note. Check the daily notes core plugin settings."
 		);
 		return null;
 	}
