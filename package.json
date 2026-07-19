@@ -1,6 +1,6 @@
 {
 	"name": "meetings-plus",
-	"version": "0.4.0",
+	"version": "0.5.0",
 	"description": "Subscribe to calendars and create pre-filled meeting notes in one click. No drag-and-drop, no Outlook required. ICS-based, privacy-first.",
 	"main": "main.js",
 	"type": "module",
