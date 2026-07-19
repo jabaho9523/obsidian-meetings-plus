@@ -6,6 +6,7 @@ import { generateId } from "./util/id";
 
 type NumericKey =
 	| "refreshIntervalMinutes"
+	| "requestTimeoutSeconds"
 	| "lookAheadDays"
 	| "lookBackDays"
 	| "notificationLeadMinutes";
@@ -32,6 +33,11 @@ export class MeetingsPlusSettingTab extends PluginSettingTab {
 			"Refresh interval (minutes)",
 			"How often to fetch calendar feeds in the background.",
 			"refreshIntervalMinutes"
+		);
+		this.numberField(
+			"Request timeout (seconds)",
+			"How long to wait for a calendar feed to respond before timing out.",
+			"requestTimeoutSeconds"
 		);
 		this.numberField(
 			"Look-ahead window (days)",

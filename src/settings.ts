@@ -4,6 +4,7 @@ import { SETTINGS_VERSION } from "./constants";
 export interface MeetingsPlusSettings {
 	version: number;
 	refreshIntervalMinutes: number;
+	requestTimeoutSeconds: number;
 	lookAheadDays: number;
 	/** How many past days the user can navigate back to. 0 disables. */
 	lookBackDays: number;
@@ -102,6 +103,7 @@ export function makeDefaultCalendar(
 export const DEFAULT_SETTINGS: MeetingsPlusSettings = {
 	version: SETTINGS_VERSION,
 	refreshIntervalMinutes: 15,
+	requestTimeoutSeconds: 10,
 	lookAheadDays: 7,
 	lookBackDays: 7,
 	enableNotifications: false,
