@@ -1,6 +1,6 @@
 import { App, TFile, moment, normalizePath } from "obsidian";
 import { CalendarConfig, Meeting, TimeFormat } from "../types";
-import { findExistingNote } from "./duplicate-detector";
+import { NoteIndex } from "./duplicate-detector";
 import { formatMeetingTime } from "../util/time";
 
 const BLOCK_START = "<!-- meetings-plus:start -->";
@@ -22,10 +22,11 @@ export interface UpdateOptions {
 	calendars: CalendarConfig[];
 	meetings: Meeting[];
 	timeFormat: TimeFormat;
+	noteIndex: NoteIndex;
 }
 
 export async function updateDailyNote(opts: UpdateOptions): Promise<void> {
-	const { app, calendars, meetings, timeFormat } = opts;
+	const { app, calendars, meetings, timeFormat, noteIndex } = opts;
 
 	const eligibleCalendarIds = new Set(
 		calendars
@@ -55,7 +56,7 @@ export async function updateDailyNote(opts: UpdateOptions): Promise<void> {
 	}
 
 	const original = await app.vault.read(file);
-	const next = replaceBlock(original, buildBlock(app, todays, timeFormat));
+	const next = replaceBlock(original, buildBlock(app, todays, timeFormat, noteIndex));
 	if (next !== original) {
 		await app.vault.modify(file, next);
 	}
@@ -64,7 +65,8 @@ export async function updateDailyNote(opts: UpdateOptions): Promise<void> {
 function buildBlock(
 	app: App,
 	meetings: Meeting[],
-	timeFormat: TimeFormat
+	timeFormat: TimeFormat,
+	noteIndex: NoteIndex
 ): string {
 	const lines: string[] = [BLOCK_START, "## Today's meetings", ""];
 	if (meetings.length === 0) {
@@ -72,7 +74,7 @@ function buildBlock(
 	} else {
 		for (const m of meetings) {
 			const time = formatMeetingTime(m.start, timeFormat);
-			const existing = findExistingNote(app, m.dedupKey);
+			const existing = noteIndex.findExistingNote(m.dedupKey);
 			if (existing) {
 				lines.push(`- **${time}** [[${existing.basename}]]`);
 			} else {
