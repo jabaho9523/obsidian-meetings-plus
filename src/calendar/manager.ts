@@ -119,12 +119,14 @@ export class CalendarManager {
 			const now = new Date();
 			const todayStart = startOfToday(now);
 			const windowStart = new Date(
-				todayStart.getTime() -
-					PARSE_BACK_DAYS * 24 * 60 * 60 * 1000
+				todayStart.getFullYear(),
+				todayStart.getMonth(),
+				todayStart.getDate() - PARSE_BACK_DAYS
 			);
 			const windowEnd = new Date(
-				todayStart.getTime() +
-					PARSE_WINDOW_DAYS * 24 * 60 * 60 * 1000
+				todayStart.getFullYear(),
+				todayStart.getMonth(),
+				todayStart.getDate() + PARSE_WINDOW_DAYS
 			);
 			const meetings = parseICS(result.body, {
 				calendar: cal,

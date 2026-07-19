@@ -1,7 +1,6 @@
 import { setIcon } from "obsidian";
 import { moment } from "../../util/time";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 const DAY_NAMES = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 
 export interface DatePickerOptions {
@@ -160,7 +159,7 @@ export class DatePicker {
 		const todayKey = this.opts.today;
 
 		for (let i = 0; i < 42; i++) {
-			const d = new Date(gridStart.getTime() + i * DAY_MS);
+			const d = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i);
 			const k = keyFromDate(d);
 			const inMonth = d.getMonth() === this.monthStart.getMonth();
 			const cell = grid.createEl("button", {
