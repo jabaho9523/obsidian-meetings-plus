@@ -106,10 +106,8 @@ export class MeetingsPlusView extends ItemView {
 		const allDaysWithMeetings = new Set<string>();
 		for (const m of this.visibleMeetings()) {
 			allDaysWithMeetings.add(dayKey(m.start));
-			if (m.allDay && m.end.getTime() > m.start.getTime() + DAY_MS) {
-				for (let t = m.start.getTime() + DAY_MS; t < m.end.getTime(); t += DAY_MS) {
-					allDaysWithMeetings.add(dayKey(new Date(t)));
-				}
+			for (const dk of spannedDayKeys(m)) {
+				allDaysWithMeetings.add(dk);
 			}
 		}
 
@@ -151,12 +149,9 @@ export class MeetingsPlusView extends ItemView {
 			const k = dayKey(m.start);
 			if (!byDay.has(k)) byDay.set(k, []);
 			byDay.get(k)!.push(m);
-			if (m.allDay && m.end.getTime() > m.start.getTime() + DAY_MS) {
-				for (let t = m.start.getTime() + DAY_MS; t < m.end.getTime(); t += DAY_MS) {
-					const dk = dayKey(new Date(t));
-					if (!byDay.has(dk)) byDay.set(dk, []);
-					byDay.get(dk)!.push(m);
-				}
+			for (const dk of spannedDayKeys(m)) {
+				if (!byDay.has(dk)) byDay.set(dk, []);
+				byDay.get(dk)!.push(m);
 			}
 		}
 
@@ -489,6 +484,27 @@ function indexById(
 	const map = new Map<string, CalendarConfig>();
 	for (const c of calendars) map.set(c.id, c);
 	return map;
+}
+
+/**
+ * Day keys an all-day event spans beyond its start day (iCal DTEND is
+ * exclusive). Steps by calendar day rather than fixed 24h so DST-transition
+ * days are neither skipped nor double-counted.
+ */
+function spannedDayKeys(m: Meeting): string[] {
+	if (!m.allDay) return [];
+	const keys: string[] = [];
+	const endT = m.end.getTime();
+	let d = new Date(
+		m.start.getFullYear(),
+		m.start.getMonth(),
+		m.start.getDate() + 1
+	);
+	while (d.getTime() < endT) {
+		keys.push(dayKey(d));
+		d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
+	}
+	return keys;
 }
 
 function startOfDay(d: Date): Date {
