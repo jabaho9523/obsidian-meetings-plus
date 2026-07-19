@@ -661,14 +661,20 @@
 	cursor: pointer;
 }
 
-/* connection test status */
+/* connection test status — hidden until a state class is applied */
 .meetings-plus-test-status {
+	display: none;
 	font-size: var(--font-ui-smaller);
 	margin-top: -6px;
 	margin-bottom: 12px;
 	padding: 6px 10px;
 	border-radius: 4px;
 	border-left: 3px solid transparent;
+}
+.meetings-plus-test-status.testing,
+.meetings-plus-test-status.success,
+.meetings-plus-test-status.error {
+	display: block;
 }
 .meetings-plus-test-status.testing {
 	color: var(--text-muted);
@@ -682,7 +688,7 @@
 }
 .meetings-plus-test-status.error {
 	color: var(--text-error);
-	background: var(--background-modifier-error-rgb);
+	background: rgba(var(--background-modifier-error-rgb), 0.15);
 	border-left-color: var(--text-error);
 }
 

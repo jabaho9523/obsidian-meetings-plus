@@ -48,7 +48,10 @@ export class CalendarEditorModal extends Modal {
 					.setValue(this.working.url)
 					.onChange((v) => {
 						this.working.url = v.trim();
-						if (statusDiv) statusDiv.style.display = "none";
+						if (statusDiv) {
+							statusDiv.className =
+								"meetings-plus-test-status";
+						}
 					});
 				t.inputEl.addClass("meetings-plus-input-wide");
 			})
@@ -65,10 +68,11 @@ export class CalendarEditorModal extends Modal {
 						b.setButtonText("Testing...");
 						statusDiv.setText("Connecting...");
 						statusDiv.className = "meetings-plus-test-status testing";
-						statusDiv.style.display = "block";
 
 						try {
-							const timeoutMs = ((this.plugin.settings as any).requestTimeoutSeconds ?? 10) * 1000;
+							const timeoutMs =
+								this.plugin.settings.requestTimeoutSeconds *
+								1000;
 							await fetchICS(url, { timeoutMs });
 							new Notice("Connection successful!");
 							statusDiv.setText("Connection successful! Valid calendar feed.");
@@ -88,7 +92,6 @@ export class CalendarEditorModal extends Modal {
 		statusDiv = contentEl.createDiv({
 			cls: "meetings-plus-test-status",
 		});
-		statusDiv.style.display = "none";
 
 		new Setting(contentEl)
 			.setName("Color")
