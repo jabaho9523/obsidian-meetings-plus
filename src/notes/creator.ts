@@ -33,12 +33,15 @@ export async function createOrOpenMeetingNote(
 		: findNoteByUid(app, meeting.uid);
 	if (rescheduled) {
 		// 1. Update frontmatter
-		await app.fileManager.processFrontMatter(rescheduled, (fm) => {
-			fm["meeting_dedup_key"] = meeting.dedupKey;
-			fm["date"] = moment(meeting.start).format("YYYY-MM-DD");
-			fm["start"] = moment(meeting.start).format("HH:mm");
-			fm["end"] = moment(meeting.end).format("HH:mm");
-		});
+		await app.fileManager.processFrontMatter(
+			rescheduled,
+			(fm: Record<string, unknown>) => {
+				fm["meeting_dedup_key"] = meeting.dedupKey;
+				fm["date"] = moment(meeting.start).format("YYYY-MM-DD");
+				fm["start"] = moment(meeting.start).format("HH:mm");
+				fm["end"] = moment(meeting.end).format("HH:mm");
+			}
+		);
 
 		// 2. Update the "**When**:" line the default template renders as
 		// "**When**: YYYY-MM-DD HH:mm – HH:mm (N min)". Silently no-ops

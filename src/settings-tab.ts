@@ -47,6 +47,7 @@ export class MeetingsPlusSettingTab extends PluginSettingTab {
 			)
 			.addDropdown((d) => {
 				d.addOption("24h", "24-hour (13:00)");
+				// eslint-disable-next-line obsidianmd/ui/sentence-case -- "PM" is a meridiem abbreviation, not title case
 				d.addOption("12h", "12-hour (1:00 PM)");
 				d.setValue(this.plugin.settings.timeFormat);
 				d.onChange(async (v) => {
