@@ -85,7 +85,7 @@ export class MeetingsPlusSettingTab extends PluginSettingTab {
 					const draft = makeDefaultCalendar(generateId(), {
 						name: "New calendar",
 					});
-					new CalendarEditorModal(this.app, draft, async (cal) => {
+					new CalendarEditorModal(this.app, this.plugin, draft, async (cal) => {
 						this.plugin.settings.calendars.push(cal);
 						await this.plugin.saveSettings();
 						this.plugin.manager.refreshCalendar(cal.id).catch(() => {
@@ -145,7 +145,7 @@ export class MeetingsPlusSettingTab extends PluginSettingTab {
 			});
 			setIcon(edit, "settings-2");
 			edit.addEventListener("click", () => {
-				new CalendarEditorModal(this.app, cal, async (updated) => {
+				new CalendarEditorModal(this.app, this.plugin, cal, async (updated) => {
 					Object.assign(cal, updated);
 					await this.plugin.saveSettings();
 					this.plugin.manager

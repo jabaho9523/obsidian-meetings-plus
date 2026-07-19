@@ -1,12 +1,15 @@
-import { App, Modal, Setting, TextAreaComponent } from "obsidian";
+import { App, Modal, Setting, TextAreaComponent, Notice } from "obsidian";
 import { CalendarConfig, NoteDestination } from "../types";
 import { FolderSuggestModal } from "./folder-suggest";
+import MeetingsPlusPlugin from "../main";
+import { fetchICS } from "../calendar/fetcher";
 
 export class CalendarEditorModal extends Modal {
 	private working: CalendarConfig;
 
 	constructor(
 		app: App,
+		private readonly plugin: MeetingsPlusPlugin,
 		initial: CalendarConfig,
 		private readonly onSave: (cal: CalendarConfig) => void | Promise<void>
 	) {
@@ -33,6 +36,8 @@ export class CalendarEditorModal extends Modal {
 					})
 			);
 
+		let statusDiv: HTMLDivElement;
+
 		new Setting(contentEl)
 			.setName("Calendar feed")
 			.setDesc(
@@ -43,9 +48,47 @@ export class CalendarEditorModal extends Modal {
 					.setValue(this.working.url)
 					.onChange((v) => {
 						this.working.url = v.trim();
+						if (statusDiv) statusDiv.style.display = "none";
 					});
 				t.inputEl.addClass("meetings-plus-input-wide");
+			})
+			.addButton((b) => {
+				b.setButtonText("Test connection")
+					.onClick(async () => {
+						const url = this.working.url.trim();
+						if (!url) {
+							new Notice("Please enter a calendar feed URL first.");
+							return;
+						}
+
+						b.setDisabled(true);
+						b.setButtonText("Testing...");
+						statusDiv.setText("Connecting...");
+						statusDiv.className = "meetings-plus-test-status testing";
+						statusDiv.style.display = "block";
+
+						try {
+							const timeoutMs = ((this.plugin.settings as any).requestTimeoutSeconds ?? 10) * 1000;
+							await fetchICS(url, { timeoutMs });
+							new Notice("Connection successful!");
+							statusDiv.setText("Connection successful! Valid calendar feed.");
+							statusDiv.className = "meetings-plus-test-status success";
+						} catch (e) {
+							const errMsg = e instanceof Error ? e.message : String(e);
+							new Notice(`Connection failed: ${errMsg}`);
+							statusDiv.setText(`Connection failed: ${errMsg}`);
+							statusDiv.className = "meetings-plus-test-status error";
+						} finally {
+							b.setDisabled(false);
+							b.setButtonText("Test connection");
+						}
+					});
 			});
+
+		statusDiv = contentEl.createDiv({
+			cls: "meetings-plus-test-status",
+		});
+		statusDiv.style.display = "none";
 
 		new Setting(contentEl)
 			.setName("Color")
