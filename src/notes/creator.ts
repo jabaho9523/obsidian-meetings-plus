@@ -26,8 +26,11 @@ export async function createOrOpenMeetingNote(
 	}
 
 	// Rescheduled-meeting fallback: same UID, different start date.
-	// Only fires when exactly one note carries this UID (non-recurring).
-	const rescheduled = findNoteByUid(app, meeting.uid);
+	// Recurring occurrences share one UID, so a single existing note would
+	// wrongly match from the second occurrence on — skip them entirely.
+	const rescheduled = meeting.recurring
+		? null
+		: findNoteByUid(app, meeting.uid);
 	if (rescheduled) {
 		// 1. Update frontmatter
 		await app.fileManager.processFrontMatter(rescheduled, (fm) => {
@@ -37,11 +40,16 @@ export async function createOrOpenMeetingNote(
 			fm["end"] = moment(meeting.end).format("HH:mm");
 		});
 
-		// 2. Update the date/time line in the note body (format: "YYYY-MM-DD · HH:mm–HH:mm · location")
-		const newWhenLine = `${moment(meeting.start).format("YYYY-MM-DD")} · ${moment(meeting.start).format("HH:mm")}–${moment(meeting.end).format("HH:mm")} · ${meeting.location}`;
+		// 2. Update the "**When**:" line the default template renders as
+		// "**When**: YYYY-MM-DD HH:mm – HH:mm (N min)". Silently no-ops
+		// for custom templates without this line.
+		const durationMin = Math.round(
+			(meeting.end.getTime() - meeting.start.getTime()) / 60_000
+		);
+		const newWhenLine = `**When**: ${moment(meeting.start).format("YYYY-MM-DD HH:mm")} – ${moment(meeting.end).format("HH:mm")} (${durationMin} min)`;
 		const bodyBefore = await app.vault.read(rescheduled);
 		const bodyAfter = bodyBefore.replace(
-			/^\d{4}-\d{2}-\d{2} · \d{2}:\d{2}–\d{2}:\d{2} · .*$/m,
+			/^\*\*When\*\*: \d{4}-\d{2}-\d{2} \d{2}:\d{2} – \d{2}:\d{2} \(\d+ min\)$/m,
 			newWhenLine
 		);
 		if (bodyAfter !== bodyBefore) {
@@ -55,8 +63,9 @@ export async function createOrOpenMeetingNote(
 		});
 		const newBaseName = sanitizeFilename(newTitle) || "Untitled meeting";
 		const folder = rescheduled.parent?.path ?? "";
-		const newPath = joinPath(folder, `${newBaseName}.md`);
+		let newPath = joinPath(folder, `${newBaseName}.md`);
 		if (newPath !== rescheduled.path) {
+			newPath = await uniquePath(app, newPath);
 			await app.fileManager.renameFile(rescheduled, newPath);
 		}
 
