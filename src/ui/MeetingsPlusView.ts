@@ -1,4 +1,5 @@
-import { ItemView, Notice, WorkspaceLeaf, moment, setIcon } from "obsidian";
+import { ItemView, Notice, WorkspaceLeaf, setIcon } from "obsidian";
+import { moment } from "../util/time";
 import MeetingsPlusPlugin from "../main";
 import {
 	PLUGIN_NAME,

@@ -1,4 +1,5 @@
-import { moment, setIcon } from "obsidian";
+import { setIcon } from "obsidian";
+import { moment } from "../../util/time";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DAY_NAMES = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];

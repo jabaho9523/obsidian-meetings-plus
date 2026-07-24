@@ -1,4 +1,5 @@
-import { App, Notice, TFile, moment, normalizePath } from "obsidian";
+import { App, Notice, TFile, normalizePath } from "obsidian";
+import { moment } from "../util/time";
 import { CalendarConfig, Meeting } from "../types";
 import { renderTemplate, sanitizeFilename } from "./template";
 import { findExistingNote, findNoteByUid } from "./duplicate-detector";

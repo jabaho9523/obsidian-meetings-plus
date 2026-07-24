@@ -1,4 +1,5 @@
-import { moment, setIcon } from "obsidian";
+import { setIcon } from "obsidian";
+import { moment } from "../../util/time";
 import { CalendarConfig, CalendarStatus } from "../../types";
 import { DatePicker } from "./date-picker";
 

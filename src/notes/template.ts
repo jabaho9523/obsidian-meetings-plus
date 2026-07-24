@@ -1,4 +1,4 @@
-import { moment } from "obsidian";
+import { moment } from "../util/time";
 import { CalendarConfig, Meeting } from "../types";
 
 export interface TemplateContext {

@@ -1,4 +1,5 @@
-import { App, TFile, moment, normalizePath } from "obsidian";
+import { App, TFile, normalizePath } from "obsidian";
+import { moment } from "../util/time";
 import { CalendarConfig, Meeting, TimeFormat } from "../types";
 import { findExistingNote } from "./duplicate-detector";
 import { formatMeetingTime } from "../util/time";
