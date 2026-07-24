@@ -16,5 +16,5 @@ export const moment = obsidianMoment as unknown as (
 ) => MomentLike;
 
 export function formatMeetingTime(d: Date, format: TimeFormat): string {
-	return moment(d).format(format === "12h" ? "h:mm A" : "HH:mm");
+	return moment(d).format(format === "12h" ? "h:mm a" : "HH:mm");
 }

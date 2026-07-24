@@ -69,7 +69,7 @@ export class MeetingsPlusSettingTab extends PluginSettingTab {
 					defaultValue: DEFAULT_SETTINGS.timeFormat,
 					options: {
 						"24h": "24-hour (13:00)",
-						"12h": "12-hour (1:00 PM)",
+						"12h": "12-hour (1:00 pm)",
 					},
 				},
 			},
@@ -139,11 +139,6 @@ export class MeetingsPlusSettingTab extends PluginSettingTab {
 		];
 	}
 
-	async setControlValue(key: string, value: unknown): Promise<void> {
-		await super.setControlValue(key, value);
-		this.plugin.manager.onSettingsChanged();
-	}
-
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
@@ -165,8 +160,7 @@ export class MeetingsPlusSettingTab extends PluginSettingTab {
 			)
 			.addDropdown((d) => {
 				d.addOption("24h", "24-hour (13:00)");
-				// eslint-disable-next-line obsidianmd/ui/sentence-case -- "PM" is a meridiem abbreviation, not title case
-				d.addOption("12h", "12-hour (1:00 PM)");
+				d.addOption("12h", "12-hour (1:00 pm)");
 				d.setValue(this.plugin.settings.timeFormat);
 				d.onChange(async (v) => {
 					this.plugin.settings.timeFormat = v as TimeFormat;

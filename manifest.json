@@ -1,7 +1,7 @@
 {
 	"id": "meetings-plus",
 	"name": "Meetings Plus",
-	"version": "0.5.1",
+	"version": "0.5.2",
 	"minAppVersion": "1.7.2",
 	"description": "Subscribe to calendars and create pre-filled meeting notes in one click. No drag-and-drop, no Outlook required. ICS-based, privacy-first.",
 	"author": "Jacob Holm",
