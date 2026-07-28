@@ -1,8 +1,26 @@
 # Meetings Plus
 
-Subscribe to your calendars and create pre-filled meeting notes in one click. No drag-and-drop, no Outlook required.
+**Subscribe to your calendar, click a meeting, get a pre-filled note.** No drag-and-drop, no Outlook open in the background, no export. Your calendar sits next to your notes, and every event is one click from a ready-to-type meeting note in your own vault.
 
 ![Meetings Plus](docs/hero.png)
+
+## How it works — 10 seconds
+
+1. **Subscribe to a calendar.** Paste an ICS link from Outlook, Google, iCloud, Proton, or Fastmail. No new account, no migration.
+2. **Today's meetings appear in the sidebar,** sorted by time — with a marker on the ones that already have notes.
+
+   ![Sidebar](docs/screenshot-1.png)
+3. **Click a meeting → a pre-filled note opens** in your chosen folder, with attendees, time, location, and agenda already filled in. Start typing.
+
+   ![Meeting note](docs/screenshot-2.png)
+
+That's the whole loop. Everything below is detail.
+
+## Coming from Notion?
+
+You ran meetings out of Notion, but you always wanted your calendar and your notes in the *same* place — without exporting to a separate calendar app, and without your meeting history living on someone else's server.
+
+Meetings Plus subscribes to the calendar you already use (Outlook, Google, iCloud, and any standards-compliant ICS feed) and turns any event into a structured note in your own **local markdown vault** with one click. Attendees come in as `[[wikilinks]]`, so every meeting connects to the people and projects it touches — the relations muscle you had in Notion, now as plain-text links you own. No telemetry, no third-party services, no lock-in.
 
 ## What it does
 
@@ -18,13 +36,13 @@ Subscribe to your calendars and create pre-filled meeting notes in one click. No
 - **Privacy-first**: only network calls are to your calendar URLs, no telemetry, no third-party services
 - **Works on mobile**: pure ICS over HTTPS, no native bindings
 
-## Why
+## Why not just drag events from Outlook?
 
-The existing **Outlook Meeting Notes** plugin requires Outlook and Obsidian to be open simultaneously, and you drag calendar events between them. That's fragile and slow. Meetings Plus reads your calendar directly via ICS, so Outlook doesn't need to be open and nothing needs to be dragged — your meetings are just there in the sidebar.
+The existing **Outlook Meeting Notes** plugin requires Outlook and Obsidian to be open simultaneously, and you drag calendar events between them. That's fragile and slow. Meetings Plus reads your calendar directly via ICS, so Outlook doesn't need to be open and nothing needs to be dragged — your meetings are just there in the sidebar, on desktop and mobile alike.
 
 ## Installation
 
-### From the Obsidian community plugins directory (once approved)
+### From the Obsidian community plugins directory
 
 1. Open Obsidian → **Settings → Community plugins**
 2. Search for **Meetings Plus**
@@ -114,7 +132,10 @@ Global options:
 
 Per-calendar options live in the calendar editor and cover URL, color, folder, title pattern, tags, template, and which features (standalone notes, daily-note append, all-day filtering) apply.
 
-## How it works
+![Settings](docs/screenshot-3.png)
+![Calendar editor](docs/screenshot-4.png)
+
+## How it works (under the hood)
 
 - Fetches each ICS feed with Obsidian's `requestUrl` (so it works on mobile and bypasses CORS)
 - Parses with [ical.js](https://github.com/mozilla-comm/ical.js) — handles timezones, recurrence rules, and the messy real-world ICS variants
@@ -140,13 +161,6 @@ Meetings Plus is part of the **Plus Plugin Family** for Obsidian:
 - **[Vault Plus](https://github.com/jabaho9523/obsidian-vault-plus)** — Vault health dashboard: find and fix orphans, broken links, empty notes, duplicates, and more.
 - **[Link Plus](https://github.com/jabaho9523/obsidian-link-plus)** — Unlinked mention scanner: find and convert unlinked mentions vault-wide with one-click or batch operations.
 - **Meetings Plus** — Subscribe to calendars and create pre-filled meeting notes in one click.
-
-## Screenshots
-
-![Sidebar](docs/screenshot-1.png)
-![Meeting note](docs/screenshot-2.png)
-![Settings](docs/screenshot-3.png)
-![Calendar editor](docs/screenshot-4.png)
 
 ## Support
 
