@@ -2,7 +2,6 @@ import {
 	App,
 	PluginSettingTab,
 	Setting,
-	SettingDefinitionItem,
 	setIcon,
 } from "obsidian";
 import MeetingsPlusPlugin from "./main";
@@ -30,113 +29,6 @@ export class MeetingsPlusSettingTab extends PluginSettingTab {
 	constructor(app: App, plugin: MeetingsPlusPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
-	}
-
-	/**
-	 * Declarative definitions for the settings-search index (Obsidian 1.13+).
-	 * Rendering still happens in display() because minAppVersion predates
-	 * the declarative renderer; keys and defaults mirror the imperative UI.
-	 */
-	getSettingDefinitions(): SettingDefinitionItem[] {
-		return [
-			{
-				name: "Refresh interval (minutes)",
-				desc: "How often to fetch calendar feeds in the background.",
-				control: {
-					type: "number",
-					key: "refreshIntervalMinutes",
-					defaultValue: DEFAULT_SETTINGS.refreshIntervalMinutes,
-					min: 1,
-				},
-			},
-			{
-				name: "Request timeout (seconds)",
-				desc: "How long to wait for a calendar feed to respond before timing out.",
-				control: {
-					type: "number",
-					key: "requestTimeoutSeconds",
-					defaultValue: DEFAULT_SETTINGS.requestTimeoutSeconds,
-					min: 1,
-				},
-			},
-			{
-				name: "Time format",
-				desc: "How meeting times are displayed in the sidebar and the daily-note meeting list.",
-				aliases: ["12-hour", "24-hour", "AM/PM"],
-				control: {
-					type: "dropdown",
-					key: "timeFormat",
-					defaultValue: DEFAULT_SETTINGS.timeFormat,
-					options: {
-						"24h": "24-hour (13:00)",
-						"12h": "12-hour (1:00 pm)",
-					},
-				},
-			},
-			{
-				name: "Look-ahead window (days)",
-				desc: "How many days of future meetings to load.",
-				control: {
-					type: "number",
-					key: "lookAheadDays",
-					defaultValue: DEFAULT_SETTINGS.lookAheadDays,
-					min: 1,
-				},
-			},
-			{
-				name: "Look-back window (days)",
-				desc: "How many days of past meetings you can navigate back to. Set to 0 to disable.",
-				control: {
-					type: "number",
-					key: "lookBackDays",
-					defaultValue: DEFAULT_SETTINGS.lookBackDays,
-					min: 0,
-					max: 30,
-				},
-			},
-			{
-				name: "Enable pre-meeting notifications",
-				desc: "Show a notice before each meeting starts.",
-				control: {
-					type: "toggle",
-					key: "enableNotifications",
-					defaultValue: DEFAULT_SETTINGS.enableNotifications,
-				},
-			},
-			{
-				name: "Notification lead time (minutes)",
-				desc: "How many minutes before a meeting to notify.",
-				control: {
-					type: "number",
-					key: "notificationLeadMinutes",
-					defaultValue: DEFAULT_SETTINGS.notificationLeadMinutes,
-					min: 1,
-				},
-			},
-			{
-				name: "Run Templater on new notes",
-				desc: "If Templater is installed, run it after creating a meeting note.",
-				control: {
-					type: "toggle",
-					key: "runTemplaterOnNewNotes",
-					defaultValue: DEFAULT_SETTINGS.runTemplaterOnNewNotes,
-				},
-			},
-			{
-				name: "Open dashboard on startup",
-				desc: "Reveal the sidebar when Obsidian starts.",
-				control: {
-					type: "toggle",
-					key: "openDashboardOnStart",
-					defaultValue: DEFAULT_SETTINGS.openDashboardOnStart,
-				},
-			},
-			{
-				name: "Calendars",
-				desc: "Add, edit, or remove calendar feeds.",
-				aliases: ["ICS", "feed", "subscribe"],
-			},
-		];
 	}
 
 	display(): void {
