@@ -21,7 +21,7 @@ jobs:
                   cache: "npm"
             - run: npm ci
             - run: npm run build
-            - uses: actions/attest-build-provenance@v2
+            - uses: actions/attest-build-provenance@v4
               with:
                   subject-path: |
                       main.js
