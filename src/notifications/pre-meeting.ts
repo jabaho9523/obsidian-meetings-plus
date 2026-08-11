@@ -1,6 +1,6 @@
 import { App, Notice } from "obsidian";
 import { CalendarConfig, Meeting } from "../types";
-import { findExistingNote } from "../notes/duplicate-detector";
+import { NoteIndex } from "../notes/duplicate-detector";
 
 /**
  * Only schedule notifications for meetings within this horizon. setTimeout
@@ -13,6 +13,7 @@ const SCHEDULE_HORIZON_MS = 25 * 60 * 60 * 1000;
 
 export interface NotificationDeps {
 	app: App;
+	noteIndex: NoteIndex;
 	getCalendars: () => CalendarConfig[];
 	getMeetings: () => Meeting[];
 	getEnabled: () => boolean;
@@ -36,7 +37,7 @@ export class PreMeetingScheduler {
 			const fireAt = meeting.start.getTime() - leadMs;
 			if (fireAt <= now) continue;
 			if (fireAt > horizon) continue;
-			if (findExistingNote(this.deps.app, meeting.dedupKey)) continue;
+			if (this.deps.noteIndex.findExistingNote(meeting.dedupKey)) continue;
 			const delay = fireAt - now;
 			const handle = window.setTimeout(() => {
 				this.notify(meeting);

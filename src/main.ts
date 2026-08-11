@@ -15,15 +15,19 @@ import { Meeting } from "./types";
 import { createOrOpenMeetingNote } from "./notes/creator";
 import { updateDailyNote } from "./notes/daily-note";
 import { PreMeetingScheduler } from "./notifications/pre-meeting";
+import { NoteIndex } from "./notes/duplicate-detector";
 
 export default class MeetingsPlusPlugin extends Plugin {
 	settings!: MeetingsPlusSettings;
 	manager!: CalendarManager;
+	noteIndex!: NoteIndex;
 	private scheduler!: PreMeetingScheduler;
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
 		this.pruneSkipped();
+
+		this.noteIndex = new NoteIndex(this);
 
 		this.manager = new CalendarManager(
 			this.app,
@@ -36,6 +40,7 @@ export default class MeetingsPlusPlugin extends Plugin {
 
 		this.scheduler = new PreMeetingScheduler({
 			app: this.app,
+			noteIndex: this.noteIndex,
 			getCalendars: () => this.settings.calendars,
 			getMeetings: () => this.manager.getAllMeetings(),
 			getEnabled: () => this.settings.enableNotifications,
@@ -183,6 +188,7 @@ export default class MeetingsPlusPlugin extends Plugin {
 				calendar,
 				runTemplater: this.settings.runTemplaterOnNewNotes,
 				openInNewPane: true,
+				noteIndex: this.noteIndex,
 			});
 			void this.refreshDailyNote();
 		} catch (e) {
@@ -213,6 +219,7 @@ export default class MeetingsPlusPlugin extends Plugin {
 				calendars: this.settings.calendars,
 				meetings: this.manager.getAllMeetings(),
 				timeFormat: this.settings.timeFormat,
+				noteIndex: this.noteIndex,
 			});
 		} catch (e) {
 			console.warn("[Meetings Plus] daily note update failed", e);

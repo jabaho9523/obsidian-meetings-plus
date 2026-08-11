@@ -10,7 +10,7 @@ import {
 	CalendarStatus,
 	Meeting,
 } from "../types";
-import { findExistingNote } from "../notes/duplicate-detector";
+
 import {
 	buildRowContextMenu,
 	renderMeetingRow,
@@ -410,7 +410,7 @@ export class MeetingsPlusView extends ItemView {
 	}
 
 	private hasNote(meeting: Meeting): boolean {
-		return Boolean(findExistingNote(this.app, meeting.dedupKey));
+		return Boolean(this.plugin.noteIndex.findExistingNote(meeting.dedupKey));
 	}
 
 	private visibleMeetings(): Meeting[] {

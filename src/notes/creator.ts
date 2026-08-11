@@ -2,7 +2,7 @@ import { App, Notice, TFile, normalizePath } from "obsidian";
 import { moment } from "../util/time";
 import { CalendarConfig, Meeting } from "../types";
 import { renderTemplate, sanitizeFilename } from "./template";
-import { findExistingNote, findNoteByUid } from "./duplicate-detector";
+import { NoteIndex } from "./duplicate-detector";
 import { runTemplaterIfAvailable } from "../integrations/templater";
 import { ensureDailyNote } from "./daily-note";
 
@@ -12,15 +12,16 @@ export interface CreateOptions {
 	calendar: CalendarConfig;
 	runTemplater: boolean;
 	openInNewPane: boolean;
+	noteIndex: NoteIndex;
 }
 
 export async function createOrOpenMeetingNote(
 	opts: CreateOptions
 ): Promise<TFile | null> {
-	const { app, meeting, calendar } = opts;
+	const { app, meeting, calendar, noteIndex } = opts;
 
 	// Existing standalone note → just open it, regardless of destination.
-	const existing = findExistingNote(app, meeting.dedupKey);
+	const existing = noteIndex.findExistingNote(meeting.dedupKey);
 	if (existing) {
 		await openFile(app, existing, opts.openInNewPane);
 		return existing;
@@ -31,7 +32,7 @@ export async function createOrOpenMeetingNote(
 	// wrongly match from the second occurrence on — skip them entirely.
 	const rescheduled = meeting.recurring
 		? null
-		: findNoteByUid(app, meeting.uid);
+		: noteIndex.findNoteByUid(meeting.uid);
 	if (rescheduled) {
 		// 1. Update frontmatter
 		await app.fileManager.processFrontMatter(
