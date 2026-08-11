@@ -41,7 +41,7 @@ export async function updateDailyNote(opts: UpdateOptions): Promise<void> {
 	}
 
 	const today = startOfDay(new Date());
-	const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+	const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
 	const todays = meetings
 		.filter((m) => eligibleCalendarIds.has(m.calendarId))
 		.filter((m) => m.start >= today && m.start < tomorrow)
