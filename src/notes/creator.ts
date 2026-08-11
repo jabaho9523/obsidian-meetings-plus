@@ -21,7 +21,7 @@ export async function createOrOpenMeetingNote(
 	const { app, meeting, calendar, noteIndex } = opts;
 
 	// Existing standalone note → just open it, regardless of destination.
-	const existing = noteIndex.findExistingNote(meeting.dedupKey);
+	const existing = noteIndex.findExistingNoteVerified(meeting.dedupKey);
 	if (existing) {
 		await openFile(app, existing, opts.openInNewPane);
 		return existing;
@@ -32,7 +32,7 @@ export async function createOrOpenMeetingNote(
 	// wrongly match from the second occurrence on — skip them entirely.
 	const rescheduled = meeting.recurring
 		? null
-		: noteIndex.findNoteByUid(meeting.uid);
+		: noteIndex.findNoteByUidVerified(meeting.uid);
 	if (rescheduled) {
 		// 1. Update frontmatter
 		await app.fileManager.processFrontMatter(

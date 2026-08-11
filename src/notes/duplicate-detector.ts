@@ -83,7 +83,7 @@ export class NoteIndex {
 		const meta = this.fileToMeta.get(path);
 		if (!meta) return;
 
-		if (meta.dedupKey) {
+		if (meta.dedupKey && this.dedupKeyToFile.get(meta.dedupKey)?.path === path) {
 			this.dedupKeyToFile.delete(meta.dedupKey);
 		}
 
@@ -128,6 +128,44 @@ export class NoteIndex {
 	findNoteByUid(uid: string): TFile | null {
 		this.initialize();
 		const matches = this.uidToFiles.get(uid) ?? [];
+		return matches.length === 1 ? (matches[0] ?? null) : null;
+	}
+
+	private scanFrontmatter(key: string, value: string): TFile[] {
+		const matches: TFile[] = [];
+		for (const file of this.plugin.app.vault.getMarkdownFiles()) {
+			const fm =
+				this.plugin.app.metadataCache.getFileCache(file)?.frontmatter;
+			if (fm?.[key] === value) matches.push(file);
+		}
+		return matches;
+	}
+
+	private reindex(file: TFile) {
+		this.deindexFileByPath(file.path);
+		this.indexFile(file);
+	}
+
+	/**
+	 * Authoritative variants for the note-creation path, where a false negative
+	 * from a stale index would create a duplicate note. Everywhere else the fast
+	 * index-only lookups are fine — a stale answer there is only cosmetic.
+	 */
+	findExistingNoteVerified(dedupKey: string): TFile | null {
+		const hit = this.findExistingNote(dedupKey);
+		if (hit) return hit;
+		const matches = this.scanFrontmatter("meeting_dedup_key", dedupKey);
+		for (const file of matches) this.reindex(file);
+		return matches[0] ?? null;
+	}
+
+	findNoteByUidVerified(uid: string): TFile | null {
+		const hit = this.findNoteByUid(uid);
+		if (hit) return hit;
+		const matches = this.scanFrontmatter("meeting_uid", uid);
+		for (const file of matches) this.reindex(file);
+		// More than one match means a recurring event with per-occurrence notes,
+		// where we can't safely identify which occurrence was rescheduled.
 		return matches.length === 1 ? (matches[0] ?? null) : null;
 	}
 }
