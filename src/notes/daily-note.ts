@@ -15,7 +15,10 @@ interface DailyNotesPluginSettings {
 
 interface InternalPluginShape {
 	enabled?: boolean;
-	instance?: { options?: DailyNotesPluginSettings };
+	instance?: {
+		options?: DailyNotesPluginSettings;
+		createDailyNote?: (date: unknown) => Promise<TFile>;
+	};
 }
 
 export interface UpdateOptions {
@@ -103,7 +106,8 @@ export async function ensureDailyNote(
 	app: App,
 	date: Date = new Date()
 ): Promise<TFile | null> {
-	const settings = getDailyNotesSettings(app);
+	const plugin = getDailyNotesPlugin(app);
+	const settings = plugin?.instance?.options ?? null;
 	const format = settings?.format || "YYYY-MM-DD";
 	const folder = (settings?.folder ?? "").trim();
 	const filename = moment(date).format(format);
@@ -113,6 +117,14 @@ export async function ensureDailyNote(
 
 	const existing = app.vault.getAbstractFileByPath(path);
 	if (existing instanceof TFile) return existing;
+
+	if (plugin?.instance?.createDailyNote) {
+		try {
+			return await plugin.instance.createDailyNote(moment(date));
+		} catch {
+			/* fall through to manual creation */
+		}
+	}
 
 	if (folder) {
 		const folderPath = normalizePath(folder);
@@ -132,7 +144,7 @@ export async function ensureDailyNote(
 	}
 }
 
-function getDailyNotesSettings(app: App): DailyNotesPluginSettings | null {
+function getDailyNotesPlugin(app: App): InternalPluginShape | null {
 	const internal = (
 		app as unknown as {
 			internalPlugins?: {
@@ -141,8 +153,7 @@ function getDailyNotesSettings(app: App): DailyNotesPluginSettings | null {
 		}
 	).internalPlugins;
 	const plugin = internal?.plugins?.["daily-notes"];
-	if (!plugin?.enabled) return null;
-	return plugin.instance?.options ?? {};
+	return plugin?.enabled ? plugin : null;
 }
 
 function startOfDay(d: Date): Date {
