@@ -27,9 +27,9 @@ export async function createOrOpenMeetingNote(
 		return existing;
 	}
 
-	// Notes written by 0.5.6 and earlier carry a UTC-dated key, which names
-	// the wrong day for all-day and early-morning events east of UTC. Adopt
-	// those notes and rewrite the key, so this costs a lookup only once.
+	// Notes written by 0.5.6 and earlier carry a UTC-dated key, which names the
+	// wrong day for all-day and early-morning events east of UTC. Adopt those
+	// notes and rewrite the key, so this costs a lookup only once per note.
 	const legacyKeyed =
 		meeting.legacyDedupKey === meeting.dedupKey
 			? null

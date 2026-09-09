@@ -126,9 +126,9 @@ export class NoteIndex {
 	}
 
 	/**
-	* Index-only lookup that also accepts the UTC-dated key written by 0.5.6
-	* and earlier, so those notes still register as existing.
-	*/
+	 * Index-only lookup that also accepts the UTC-dated key written by 0.5.6
+	 * and earlier, so those notes still register as existing.
+	 */
 	findNoteForMeeting(meeting: {
 		dedupKey: string;
 		legacyDedupKey: string;
