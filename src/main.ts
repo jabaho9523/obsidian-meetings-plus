@@ -261,6 +261,10 @@ function migrateCalendar(c: unknown): import("./types").CalendarConfig {
 		noteDestination: destination,
 		appendToDailyNote: obj["appendToDailyNote"] === true,
 		excludeAllDay: obj["excludeAllDay"] !== false,
+		myEmail: pickString(obj["myEmail"], ""),
+		excludeDeclined: obj["excludeDeclined"] === true,
+		excludeOutOfOffice: obj["excludeOutOfOffice"] === true,
+		excludeFreeTime: obj["excludeFreeTime"] === true,
 	};
 }
 
