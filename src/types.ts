@@ -42,8 +42,14 @@ export interface CalendarConfig {
 }
 
 export interface Meeting {
-	/** Stable dedup key: combination of ICS UID and recurrence start */
+	/** Stable dedup key: calendar id, ICS UID, and local occurrence date */
 	dedupKey: string;
+	/**
+	* dedupKey as written by 0.5.6 and earlier, which used the UTC date and
+	* so named the wrong day for all-day and early-morning events east of
+	* UTC. Kept only so notes created back then are still recognized.
+	*/
+	legacyDedupKey: string;
 	/** ICS UID (may repeat across recurrences) */
 	uid: string;
 	/** Whether this meeting is an occurrence of a recurring event */
