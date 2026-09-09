@@ -1,4 +1,12 @@
-import { CalendarConfig, TimeFormat } from "./types";
+import {
+	BusyStatus,
+	CalendarConfig,
+	EventPrivacy,
+	EventStatus,
+	GeoPoint,
+	MeetingAttendee,
+	TimeFormat,
+} from "./types";
 import { SETTINGS_VERSION } from "./constants";
 
 export interface MeetingsPlusSettings {
@@ -30,8 +38,6 @@ export interface PersistedCacheEntry {
 
 export interface SerializedMeeting {
 	dedupKey: string;
-	/** Absent in caches written by 0.5.6 and earlier */
-	legacyDedupKey?: string;
 	uid: string;
 	/** Absent in caches written before 0.4.1 */
 	recurring?: boolean;
@@ -45,6 +51,32 @@ export interface SerializedMeeting {
 	organizer: string;
 	attendees: string[];
 	meetingUrl: string;
+	/**
+	 * Everything below is absent in caches written by 0.5.6 and earlier. The
+	 * cache is refilled on the next fetch, so missing fields only need safe
+	 * defaults.
+	 */
+	legacyDedupKey?: string;
+	isException?: boolean;
+	organizerEmail?: string;
+	attendeeDetails?: MeetingAttendee[];
+	conferenceUrl?: string;
+	url?: string;
+	categories?: string[];
+	status?: EventStatus;
+	busyStatus?: BusyStatus;
+	privacy?: EventPrivacy;
+	priority?: number | null;
+	sequence?: number;
+	/** ISO strings */
+	created?: string | null;
+	lastModified?: string | null;
+	timezone?: string;
+	recurrenceRule?: string;
+	recurrenceText?: string;
+	geo?: GeoPoint | null;
+	attachments?: string[];
+	reminderMinutes?: number | null;
 }
 
 export const DEFAULT_TEMPLATE = `---
