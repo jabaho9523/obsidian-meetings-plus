@@ -54,6 +54,7 @@ export class MeetingCache {
 function serialize(m: Meeting): SerializedMeeting {
 	return {
 		dedupKey: m.dedupKey,
+		legacyDedupKey: m.legacyDedupKey,
 		uid: m.uid,
 		recurring: m.recurring,
 		calendarId: m.calendarId,
@@ -72,6 +73,9 @@ function serialize(m: Meeting): SerializedMeeting {
 function deserialize(s: SerializedMeeting): Meeting {
 	return {
 		dedupKey: s.dedupKey,
+		// Caches from 0.5.6 and earlier predate the local-date key, so the
+		// key they hold is itself the legacy one.
+		legacyDedupKey: s.legacyDedupKey ?? s.dedupKey,
 		uid: s.uid,
 		// Entries cached before the flag existed: assume recurring so the
 		// reschedule fallback stays off until the next refresh re-parses.
