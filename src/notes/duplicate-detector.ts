@@ -125,6 +125,19 @@ export class NoteIndex {
 		return this.dedupKeyToFile.get(dedupKey) ?? null;
 	}
 
+	/**
+	* Index-only lookup that also accepts the UTC-dated key written by 0.5.6
+	* and earlier, so those notes still register as existing.
+	*/
+	findNoteForMeeting(meeting: {
+		dedupKey: string;
+		legacyDedupKey: string;
+	}): TFile | null {
+		const hit = this.findExistingNote(meeting.dedupKey);
+		if (hit || meeting.legacyDedupKey === meeting.dedupKey) return hit;
+		return this.findExistingNote(meeting.legacyDedupKey);
+	}
+
 	findNoteByUid(uid: string): TFile | null {
 		this.initialize();
 		const matches = this.uidToFiles.get(uid) ?? [];

@@ -29,6 +29,8 @@ export interface PersistedCacheEntry {
 
 export interface SerializedMeeting {
 	dedupKey: string;
+	/** Absent in caches written by 0.5.6 and earlier */
+	legacyDedupKey?: string;
 	uid: string;
 	/** Absent in caches written before 0.4.1 */
 	recurring?: boolean;

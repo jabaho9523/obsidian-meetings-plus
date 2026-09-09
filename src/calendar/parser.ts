@@ -359,11 +359,14 @@ function buildMeeting(opts: BuildOptions): Meeting {
 		detectGenericUrl(location) ||
 		"";
 
-	const startISO = start.toISOString().slice(0, 10);
-	const dedupKey = `${calendar.id}::${master.uid}::${startISO}`;
+	const dedupKey = `${calendar.id}::${master.uid}::${localDateKey(start)}`;
+	const legacyDedupKey = `${calendar.id}::${master.uid}::${start
+		.toISOString()
+		.slice(0, 10)}`;
 
 	return {
 		dedupKey,
+		legacyDedupKey,
 		uid: master.uid,
 		recurring,
 		calendarId: calendar.id,
@@ -377,6 +380,12 @@ function buildMeeting(opts: BuildOptions): Meeting {
 		attendees,
 		meetingUrl,
 	};
+}
+
+/** Local calendar day, so occurrence keys agree with what the sidebar shows. */
+function localDateKey(d: Date): string {
+	const pad = (n: number) => String(n).padStart(2, "0");
+	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 function detectMeetingUrl(text: string): string {
