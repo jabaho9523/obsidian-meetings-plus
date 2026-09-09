@@ -116,7 +116,7 @@ interface MinimalEvent {
 	getOccurrenceDetails(time: MinimalTime): {
 		startDate: MinimalTime;
 		endDate: MinimalTime;
-		item: { component: MinimalComponent };
+		item: MinimalEvent;
 	};
 }
 
@@ -146,7 +146,17 @@ export function parseICS(ics: string, opts: ParseOptions): Meeting[] {
 	const meetings: Meeting[] = [];
 	const seen = new Set<string>();
 
-	for (const vevent of root.getAllSubcomponents("vevent")) {
+	// UIDs that have a series master in this feed. Used to tell an override
+	// whose master we will expand anyway from an orphaned one we must keep.
+	const vevents = root.getAllSubcomponents("vevent");
+	const seriesUids = new Set<string>();
+	for (const vevent of vevents) {
+		if (!vevent.getFirstProperty("rrule")) continue;
+		const uid = vevent.getFirstPropertyValue<string>("uid");
+		if (uid) seriesUids.add(uid);
+	}
+
+	for (const vevent of vevents) {
 		const event = new ICAL.Event(vevent) as unknown as MinimalEvent;
 		const status = vevent.getFirstPropertyValue<string>("status");
 		if (status === "CANCELLED") continue;
@@ -177,16 +187,21 @@ export function parseICS(ics: string, opts: ParseOptions): Meeting[] {
 				if (!next) break;
 				let start: Date;
 				let end: Date;
+				let source = event;
 				let overrideCancelled = false;
 				try {
 					const details = event.getOccurrenceDetails(next);
 					start = details.startDate.toJSDate();
 					end = details.endDate.toJSDate();
+					// An overridden occurrence carries its own VEVENT, which
+					// may have a different summary, location, or attendee list
+					// than the series master. Read the occurrence's own data.
+					source = details.item ?? event;
 					// Single-occurrence cancellation: the override VEVENT has
 					// its own STATUS:CANCELLED. ical.js still iterates the slot,
 					// so we have to check the override item ourselves.
 					const overrideStatus =
-						details.item.component.getFirstPropertyValue<string>(
+						source.component.getFirstPropertyValue<string>(
 							"status"
 						);
 					if (overrideStatus === "CANCELLED") {
@@ -229,14 +244,40 @@ export function parseICS(ics: string, opts: ParseOptions): Meeting[] {
 				if (start >= windowEnd) break;
 				if (end <= windowStart) continue;
 				emitted++;
-				const meeting = buildMeeting(event, start, end, calendar);
+				const meeting = buildMeeting({
+					source,
+					master: event,
+					start,
+					end,
+					calendar,
+					recurring: true,
+				});
 				if (acceptable(meeting, calendar, seen)) meetings.push(meeting);
 			}
 		} else {
+			// Override components (RECURRENCE-ID without an RRULE) are emitted
+			// by their master's iterator above, so skip them here — otherwise
+			// they double-count, and the master's stale copy of the occurrence
+			// can win the dedup and shadow the edited one. An override whose
+			// master is missing from the feed is still the only record of that
+			// occurrence, so it is kept.
+			if (
+				vevent.getFirstProperty("recurrence-id") &&
+				seriesUids.has(event.uid)
+			) {
+				continue;
+			}
 			const start = event.startDate.toJSDate();
 			const end = event.endDate.toJSDate();
 			if (end <= windowStart || start >= windowEnd) continue;
-			const meeting = buildMeeting(event, start, end, calendar);
+			const meeting = buildMeeting({
+				source: event,
+				master: event,
+				start,
+				end,
+				calendar,
+				recurring: false,
+			});
 			if (acceptable(meeting, calendar, seen)) meetings.push(meeting);
 		}
 	}
@@ -256,20 +297,43 @@ function acceptable(
 	return true;
 }
 
-function buildMeeting(
-	event: MinimalEvent,
-	start: Date,
-	end: Date,
-	calendar: CalendarConfig
-): Meeting {
-	const allDay = Boolean(event.startDate?.isDate);
-	const title = (event.summary ?? "").toString().trim() || "(no title)";
-	const location = (event.location ?? "").toString();
-	const description = stripHTML((event.description ?? "").toString());
-	const organizer = cleanContact(String(event.organizer ?? ""));
+interface BuildOptions {
+	/** The occurrence's own VEVENT — the override when one exists */
+	source: MinimalEvent;
+	/** The series master, a fallback for properties the override omits */
+	master: MinimalEvent;
+	start: Date;
+	end: Date;
+	calendar: CalendarConfig;
+	recurring: boolean;
+}
+
+function buildMeeting(opts: BuildOptions): Meeting {
+	const { source, master, start, end, calendar, recurring } = opts;
+	const sc = source.component;
+	const mc = master.component;
+
+	const allDay = Boolean(master.startDate?.isDate);
+	const title =
+		(source.summary ?? master.summary ?? "").toString().trim() ||
+		"(no title)";
+	const location = (source.location ?? master.location ?? "").toString();
+	const description = stripHTML(
+		(source.description ?? master.description ?? "").toString()
+	);
+	const organizer = cleanContact(
+		String(source.organizer ?? master.organizer ?? "")
+	);
+
+	// An override that omits a property inherits the master's value.
+	const ownAttendees = sc.getAllProperties("attendee");
+	const attendeeProps =
+		ownAttendees.length > 0
+			? ownAttendees
+			: mc.getAllProperties("attendee");
 
 	const attendees: string[] = [];
-	for (const prop of event.component.getAllProperties("attendee")) {
+	for (const prop of attendeeProps) {
 		const cn = prop.getParameter("cn");
 		if (cn) {
 			attendees.push(cn);
@@ -279,9 +343,13 @@ function buildMeeting(
 		if (typeof v === "string") attendees.push(cleanContact(v));
 	}
 
-	const teamsUrl = event.component.getFirstPropertyValue<string>(
-		"x-microsoft-skypeteamsmeetingurl"
-	);
+	const teamsUrl =
+		sc.getFirstPropertyValue<string>(
+			"x-microsoft-skypeteamsmeetingurl"
+		) ??
+		mc.getFirstPropertyValue<string>(
+			"x-microsoft-skypeteamsmeetingurl"
+		);
 	const meetingUrl =
 		(teamsUrl && String(teamsUrl)) ||
 		detectMeetingUrl(location) ||
@@ -291,12 +359,12 @@ function buildMeeting(
 		"";
 
 	const startISO = start.toISOString().slice(0, 10);
-	const dedupKey = `${calendar.id}::${event.uid}::${startISO}`;
+	const dedupKey = `${calendar.id}::${master.uid}::${startISO}`;
 
 	return {
 		dedupKey,
-		uid: event.uid,
-		recurring: event.isRecurring(),
+		uid: master.uid,
+		recurring,
 		calendarId: calendar.id,
 		title,
 		start,
