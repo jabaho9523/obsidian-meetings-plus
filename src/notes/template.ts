@@ -68,6 +68,8 @@ function resolveVariable(
 				.join(", ");
 		case "attendees_table":
 			return attendeesTable(meeting);
+		case "my_response":
+			return meeting.myResponse;
 		case "attendee_count":
 			return String(people(meeting).length);
 		case "required_attendees":

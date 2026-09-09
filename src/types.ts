@@ -97,6 +97,18 @@ export interface CalendarConfig {
 	appendToDailyNote: boolean;
 	/** Filter out all-day events */
 	excludeAllDay: boolean;
+	/**
+	 * Your address on this feed, used to find your own ATTENDEE entry so
+	 * `excludeDeclined` knows which reply is yours. Accepts several addresses
+	 * separated by commas, for accounts with aliases.
+	 */
+	myEmail: string;
+	/** Filter out meetings you replied DECLINED to. Needs `myEmail`. */
+	excludeDeclined: boolean;
+	/** Filter out out-of-office blocks */
+	excludeOutOfOffice: boolean;
+	/** Filter out events that do not block time (shown as free) */
+	excludeFreeTime: boolean;
 }
 
 export interface Meeting {
@@ -136,6 +148,11 @@ export interface Meeting {
 	attendees: string[];
 	/** Full attendee records, including reply status, role, and type */
 	attendeeDetails: MeetingAttendee[];
+	/**
+	 * Your own reply, matched via the calendar's `myEmail`. "" when no address
+	 * is configured or the feed carries no attendee entry for you.
+	 */
+	myResponse: AttendeeStatus;
 	/** Detected Teams / Zoom / Meet / Webex link from description or location */
 	meetingUrl: string;
 	/** RFC 7986 CONFERENCE URI, or the Google Meet X-property */
