@@ -15,9 +15,9 @@ export async function runTemplaterIfAvailable(
 			plugins?: { plugins?: Record<string, TemplaterAPI | undefined> };
 		}
 	).plugins?.plugins?.["templater-obsidian"];
-	const fn = plugin?.templater?.overwrite_file_commands;
-	if (typeof fn !== "function") return false;
-	await fn(file);
+	const templater = plugin?.templater;
+	if (typeof templater?.overwrite_file_commands !== "function") return false;
+	await templater.overwrite_file_commands(file);
 	return true;
 }
 
