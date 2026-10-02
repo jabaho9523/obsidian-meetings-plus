@@ -126,11 +126,19 @@ async function createStandaloneFile(opts: CreateOptions): Promise<TFile | null> 
 	return file;
 }
 
+const markerSource = (kind: "section" | "section/end", key: string): string =>
+	`<!--\\s*mp:${kind}\\s+dedup=${key}\\s*-->`;
+
 const SECTION_MARKER_RE = (key: string): RegExp =>
 	new RegExp(
-		`<!--\\s*mp:section\\s+dedup=${escapeRegex(key)}\\s*-->[\\s\\S]*?<!--\\s*mp:section/end\\s+dedup=${escapeRegex(key)}\\s*-->`,
+		`${markerSource("section", escapeRegex(key))}[\\s\\S]*?${markerSource("section/end", escapeRegex(key))}`,
 		"m"
 	);
+
+/** Matches a line consisting solely of a start or end section marker. */
+export const SECTION_MARKER_LINE_RE = new RegExp(
+	`^\\s*(?:${markerSource("section", ".+?")}|${markerSource("section/end", ".+?")})\\s*$`
+);
 
 async function appendToDailyNoteSection(
 	opts: CreateOptions

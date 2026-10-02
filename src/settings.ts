@@ -14,6 +14,7 @@ export interface MeetingsPlusSettings {
 	notificationLeadMinutes: number;
 	runTemplaterOnNewNotes: boolean;
 	openDashboardOnStart: boolean;
+	hideSectionMarkers: boolean;
 	calendars: CalendarConfig[];
 	/** Persisted cache. Keyed by calendarId. */
 	cache: Record<string, PersistedCacheEntry>;
@@ -113,6 +114,7 @@ export const DEFAULT_SETTINGS: MeetingsPlusSettings = {
 	notificationLeadMinutes: 5,
 	runTemplaterOnNewNotes: false,
 	openDashboardOnStart: false,
+	hideSectionMarkers: true,
 	calendars: [],
 	cache: {},
 	skippedToday: [],
