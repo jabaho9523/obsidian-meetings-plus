@@ -16,6 +16,7 @@ import { createOrOpenMeetingNote } from "./notes/creator";
 import { updateDailyNote } from "./notes/daily-note";
 import { PreMeetingScheduler } from "./notifications/pre-meeting";
 import { NoteIndex } from "./notes/duplicate-detector";
+import { hideSectionMarkers } from "./editor/hide-markers";
 
 export default class MeetingsPlusPlugin extends Plugin {
 	settings!: MeetingsPlusSettings;
@@ -123,6 +124,10 @@ export default class MeetingsPlusPlugin extends Plugin {
 		});
 
 		this.addSettingTab(new MeetingsPlusSettingTab(this.app, this));
+
+		this.registerEditorExtension(
+			hideSectionMarkers(() => this.settings.hideSectionMarkers)
+		);
 
 		this.manager.events.on("refresh:completed", () => {
 			this.scheduler.reschedule();
