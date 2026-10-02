@@ -95,7 +95,7 @@ export class MeetingsPlusSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("Hide section markers in the editor")
 			.setDesc(
-				"Hide the hidden markers around daily-note meeting sections while editing. They stay in the file; Reading view always hides them."
+				"Hide the markers around daily-note meeting sections while editing. They stay in the file, and Reading view always hides them."
 			)
 			.addToggle((t) =>
 				t
