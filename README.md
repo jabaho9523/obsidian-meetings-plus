@@ -117,7 +117,21 @@ Each calendar has its own editable template. Variables are written as `{{name}}`
 | `{{dedup_key}}` | Internal dedup key (used in frontmatter) |
 | `{{tags}}` | Calendar's tags as YAML list |
 
-**Templater compatibility**: keep your `<% tp.* %>` tokens in the template. Meetings Plus does its `{{ }}` substitution first; Templater runs second if you enable "Run Templater on new notes".
+## Templater
+
+If [Templater](https://github.com/SilentVoid13/Templater) is installed, Meetings Plus can run it on new meeting notes:
+
+1. Enable **Settings → Meetings Plus → Run Templater on new notes**
+2. Put Templater tags in a calendar's template alongside the `{{variables}}`:
+
+```markdown
+## {{title}}
+Prepared on <% tp.date.now("YYYY-MM-DD") %>
+```
+
+Meetings Plus fills in its `{{ }}` variables first; Templater then processes the note.
+
+> **Daily-note destinations:** Templater processes the *whole* daily note, not just the meeting section — any other Templater tags left in that note will run too. Templater runs only when the section is first created; clicking the meeting again just opens the note at its section.
 
 ## Settings
 

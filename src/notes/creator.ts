@@ -1,4 +1,4 @@
-import { App, Notice, TFile, normalizePath } from "obsidian";
+import { App, MarkdownView, Notice, TFile, normalizePath } from "obsidian";
 import { moment } from "../util/time";
 import { CalendarConfig, Meeting } from "../types";
 import { renderTemplate, sanitizeFilename } from "./template";
@@ -148,24 +148,26 @@ async function appendToDailyNoteSection(
 		return null;
 	}
 
+	const original = await app.vault.read(file);
+	const existing = SECTION_MARKER_RE(meeting.dedupKey).exec(original);
+	if (existing) {
+		const line = original.slice(0, existing.index).split("\n").length - 1;
+		const leaf = app.workspace.getLeaf(opts.openInNewPane ? "tab" : false);
+		await leaf.openFile(file);
+		if (leaf.view instanceof MarkdownView) {
+			const pos = { line, ch: 0 };
+			leaf.view.editor.setCursor(pos);
+			leaf.view.editor.scrollIntoView({ from: pos, to: pos }, true);
+		}
+		return file;
+	}
+
 	const body = stripFrontmatter(
 		renderTemplate(calendar.template, { meeting, calendar })
 	).trim();
 	const sectionBlock = buildSection(meeting.dedupKey, body);
-
-	const original = await app.vault.read(file);
-	const re = SECTION_MARKER_RE(meeting.dedupKey);
-	let next: string;
-	if (re.test(original)) {
-		next = original.replace(re, sectionBlock);
-	} else {
-		const sep =
-			original.length === 0 || original.endsWith("\n") ? "" : "\n";
-		next = `${original}${sep}\n${sectionBlock}\n`;
-	}
-	if (next !== original) {
-		await app.vault.modify(file, next);
-	}
+	const sep = original.length === 0 || original.endsWith("\n") ? "" : "\n";
+	await app.vault.modify(file, `${original}${sep}\n${sectionBlock}\n`);
 
 	if (opts.runTemplater) {
 		try {
