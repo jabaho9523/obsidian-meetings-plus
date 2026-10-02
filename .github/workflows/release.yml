@@ -27,11 +27,13 @@ jobs:
                       main.js
                       manifest.json
                       styles.css
-            - env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            - name: Create or update release
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  TAG: ${{ github.ref_name }}
               run: |
-                  tag="${GITHUB_REF#refs/tags/}"
-                  gh release create "$tag" \
-                    --title="$tag" \
-                    --notes "Meetings Plus $tag" \
-                    main.js manifest.json styles.css
+                  if gh release view "$TAG" >/dev/null 2>&1; then
+                    gh release upload "$TAG" main.js manifest.json styles.css --clobber
+                  else
+                    gh release create "$TAG" main.js manifest.json styles.css --title "$TAG" --generate-notes
+                  fi
