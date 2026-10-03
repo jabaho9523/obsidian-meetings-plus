@@ -309,6 +309,13 @@ function acceptable(
 	seen: Set<string>
 ): boolean {
 	if (calendar.excludeAllDay && meeting.allDay) return false;
+	if (calendar.excludeDeclined && meeting.myResponse === "declined") {
+		return false;
+	}
+	if (calendar.excludeOutOfOffice && meeting.busyStatus === "oof") {
+		return false;
+	}
+	if (calendar.excludeFreeTime && meeting.busyStatus === "free") return false;
 	if (seen.has(meeting.dedupKey)) return false;
 	seen.add(meeting.dedupKey);
 	return true;
@@ -362,6 +369,7 @@ function buildMeeting(opts: BuildOptions): Meeting {
 
 	const attendeeDetails = allProps("attendee").map(parseAttendee);
 	const attendees = attendeeDetails.map((a) => a.name).filter(Boolean);
+	const myResponse = findOwnResponse(attendeeDetails, calendar.myEmail);
 
 	const conferenceUrl =
 		pickConferenceUrl(allProps("conference")) ||
@@ -413,6 +421,7 @@ function buildMeeting(opts: BuildOptions): Meeting {
 		organizerEmail,
 		attendees,
 		attendeeDetails,
+		myResponse,
 		meetingUrl,
 		conferenceUrl,
 		url: eventUrl,
@@ -479,6 +488,32 @@ function parseAttendee(prop: MinimalProperty): MeetingAttendee {
 		type: normalizeCutype(firstParam(prop, "cutype")),
 		rsvp: firstParam(prop, "rsvp").toUpperCase() === "TRUE",
 	};
+}
+
+/**
+ * Your own reply, found by matching the calendar's configured address against
+ * the attendee list. Several addresses can be configured for accounts with
+ * aliases; the first attendee that matches any of them wins.
+ */
+function findOwnResponse(
+	attendees: MeetingAttendee[],
+	myEmail: string | undefined
+): AttendeeStatus {
+	const mine = splitAddresses(myEmail);
+	if (mine.length === 0) return "";
+	for (const attendee of attendees) {
+		const email = attendee.email.trim().toLowerCase();
+		if (email && mine.includes(email)) return attendee.status;
+	}
+	return "";
+}
+
+function splitAddresses(raw: string | undefined): string[] {
+	if (!raw) return [];
+	return raw
+		.split(/[,;\s]+/)
+		.map((part) => cleanContact(part.trim()).toLowerCase())
+		.filter(Boolean);
 }
 
 function normalizePartstat(raw: string): AttendeeStatus {

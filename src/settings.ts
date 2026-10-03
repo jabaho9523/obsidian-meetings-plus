@@ -1,4 +1,5 @@
 import {
+	AttendeeStatus,
 	BusyStatus,
 	CalendarConfig,
 	EventPrivacy,
@@ -60,6 +61,7 @@ export interface SerializedMeeting {
 	isException?: boolean;
 	organizerEmail?: string;
 	attendeeDetails?: MeetingAttendee[];
+	myResponse?: AttendeeStatus;
 	conferenceUrl?: string;
 	url?: string;
 	categories?: string[];
@@ -133,6 +135,10 @@ export function makeDefaultCalendar(
 		noteDestination: "file",
 		appendToDailyNote: false,
 		excludeAllDay: true,
+		myEmail: "",
+		excludeDeclined: false,
+		excludeOutOfOffice: false,
+		excludeFreeTime: false,
 		...overrides,
 	};
 }

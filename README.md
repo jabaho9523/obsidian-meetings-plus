@@ -122,6 +122,7 @@ Each calendar has its own editable template. Variables are written as `{{name}}`
 | `{{attendees_emails}}` | Comma-separated attendee addresses |
 | `{{attendees_table}}` | Markdown table of name, response, and role |
 | `{{attendee_count}}` | Number of people invited (rooms and equipment excluded) |
+| `{{my_response}}` | How *you* replied, when the calendar's email address is configured |
 | `{{required_attendees}}`, `{{optional_attendees}}` | Split by `ROLE` |
 | `{{attendees_accepted}}`, `{{attendees_declined}}`, `{{attendees_tentative}}`, `{{attendees_pending}}` | Split by `PARTSTAT` reply |
 | `{{rooms}}` | Booked rooms and equipment (`CUTYPE=ROOM`/`RESOURCE`) |
@@ -179,7 +180,19 @@ Global options:
 - **Run Templater on new notes** — post-process meeting notes through Templater if installed
 - **Open dashboard on startup** — auto-open the sidebar when Obsidian loads
 
-Per-calendar options live in the calendar editor and cover URL, color, folder, title pattern, tags, template, and which features (standalone notes, daily-note append, all-day filtering) apply.
+Per-calendar options live in the calendar editor and cover URL, color, folder, title pattern, tags, template, and which features (standalone notes, daily-note append) apply.
+
+### Filters
+
+Each calendar can hide events you don't want cluttering the sidebar:
+
+- **Exclude all-day events**
+- **Exclude meetings you declined** — needs **Your email address**, so the plugin can find your own entry in the attendee list. Several addresses can be given, separated by commas, if the account has aliases. Feeds that don't publish attendee replies (many "publish calendar" URLs strip them) leave this with nothing to match, in which case nothing is hidden.
+- **Exclude out-of-office blocks** — events your calendar marks as out of office
+- **Exclude events marked as free** — reminders, birthdays, and anything else that doesn't block time
+
+Filters apply when a feed is parsed, so changing one re-fetches that calendar and takes effect right away. Filtered events are hidden everywhere — sidebar, daily-note list, and pre-meeting notifications.
+
 ![Settings](docs/screenshot-3.png)
 ![Calendar editor](docs/screenshot-4.png)
 
