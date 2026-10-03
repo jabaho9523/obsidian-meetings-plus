@@ -175,7 +175,31 @@ async function appendToDailyNoteSection(
 	}
 
 	const original = await app.vault.read(file);
-	const existing = SECTION_MARKER_RE(meeting.dedupKey).exec(original);
+	let existing = SECTION_MARKER_RE(meeting.dedupKey).exec(original);
+	if (!existing && meeting.legacyDedupKey !== meeting.dedupKey) {
+		// Sections written by 0.5.6 and earlier carry the UTC-dated key.
+		// Rekey only the two marker lines; the body is left untouched.
+		const legacy = SECTION_MARKER_RE(meeting.legacyDedupKey).exec(original);
+		if (legacy) {
+			const key = escapeRegex(meeting.legacyDedupKey);
+			const rekeyed = legacy[0]
+				.replace(
+					new RegExp(`^${markerSource("section", key)}`),
+					() => `<!-- mp:section dedup=${meeting.dedupKey} -->`
+				)
+				.replace(
+					new RegExp(`${markerSource("section/end", key)}$`),
+					() => `<!-- mp:section/end dedup=${meeting.dedupKey} -->`
+				);
+			await app.vault.modify(
+				file,
+				original.slice(0, legacy.index) +
+					rekeyed +
+					original.slice(legacy.index + legacy[0].length)
+			);
+			existing = legacy;
+		}
+	}
 	if (existing) {
 		const line = original.slice(0, existing.index).split("\n").length - 1;
 		const leaf = app.workspace.getLeaf(opts.openInNewPane ? "tab" : false);
