@@ -1,5 +1,16 @@
 import ICAL from "ical.js";
-import { CalendarConfig, Meeting } from "../types";
+import {
+	AttendeeRole,
+	AttendeeStatus,
+	AttendeeType,
+	BusyStatus,
+	CalendarConfig,
+	EventPrivacy,
+	EventStatus,
+	GeoPoint,
+	Meeting,
+	MeetingAttendee,
+} from "../types";
 
 const MEETING_URL_PATTERNS: RegExp[] = [
 	/https:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^\s"'<>]+/i,
@@ -86,20 +97,24 @@ function rewriteOutlookTzids(ics: string): string {
 	return out;
 }
 
-interface AttendeeProperty {
+interface MinimalProperty {
 	name: string;
 	getFirstValue(): unknown;
-	getParameter(name: string): string | undefined;
+	getValues(): unknown[];
+	getParameter(name: string): string | string[] | undefined;
 }
 
 interface MinimalComponent {
 	getFirstPropertyValue<T>(name: string): T | null;
-	getAllProperties(name?: string): AttendeeProperty[];
+	getFirstProperty(name: string): MinimalProperty | null;
+	getAllProperties(name?: string): MinimalProperty[];
+	getAllSubcomponents(name: string): MinimalComponent[];
 }
 
 interface MinimalTime {
 	toJSDate(): Date;
 	isDate: boolean;
+	zone?: { tzid?: string };
 }
 
 interface MinimalEvent {
@@ -214,6 +229,7 @@ export function parseICS(ics: string, opts: ParseOptions): Meeting[] {
 					end = new Date(start.getTime() + masterDurationMs);
 				}
 				if (overrideCancelled) continue;
+
 				// The first occurrence of an RRULE is DTSTART itself, so it
 				// must carry the master's time-of-day. If it comes back at
 				// local midnight instead, the iterator lost the time for the
@@ -301,7 +317,7 @@ function acceptable(
 interface BuildOptions {
 	/** The occurrence's own VEVENT — the override when one exists */
 	source: MinimalEvent;
-	/** The series master, a fallback for properties the override omits */
+	/** The series master, used as a fallback for properties the override omits */
 	master: MinimalEvent;
 	start: Date;
 	end: Date;
@@ -313,6 +329,19 @@ function buildMeeting(opts: BuildOptions): Meeting {
 	const { source, master, start, end, calendar, recurring } = opts;
 	const sc = source.component;
 	const mc = master.component;
+	const isException = Boolean(sc.getFirstProperty("recurrence-id"));
+
+	/** Override value if the override defines one, else the master's. */
+	const firstValue = <T>(name: string): T | null =>
+		sc.getFirstPropertyValue<T>(name) ?? mc.getFirstPropertyValue<T>(name);
+	const allProps = (name: string): MinimalProperty[] => {
+		const own = sc.getAllProperties(name);
+		return own.length > 0 ? own : mc.getAllProperties(name);
+	};
+	const allSubs = (name: string): MinimalComponent[] => {
+		const own = sc.getAllSubcomponents(name);
+		return own.length > 0 ? own : mc.getAllSubcomponents(name);
+	};
 
 	const allDay = Boolean(master.startDate?.isDate);
 	const title =
@@ -322,42 +351,45 @@ function buildMeeting(opts: BuildOptions): Meeting {
 	const description = stripHTML(
 		(source.description ?? master.description ?? "").toString()
 	);
-	const organizer = cleanContact(
+
+	const organizerProp =
+		sc.getFirstProperty("organizer") ?? mc.getFirstProperty("organizer");
+	const organizerEmail = cleanContact(
 		String(source.organizer ?? master.organizer ?? "")
 	);
+	const organizerName =
+		firstParam(organizerProp, "cn") || organizerEmail || "";
 
-	// An override that omits a property inherits the master's value.
-	const ownAttendees = sc.getAllProperties("attendee");
-	const attendeeProps =
-		ownAttendees.length > 0
-			? ownAttendees
-			: mc.getAllProperties("attendee");
+	const attendeeDetails = allProps("attendee").map(parseAttendee);
+	const attendees = attendeeDetails.map((a) => a.name).filter(Boolean);
 
-	const attendees: string[] = [];
-	for (const prop of attendeeProps) {
-		const cn = prop.getParameter("cn");
-		if (cn) {
-			attendees.push(cn);
-			continue;
-		}
-		const v = prop.getFirstValue();
-		if (typeof v === "string") attendees.push(cleanContact(v));
-	}
-
-	const teamsUrl =
-		sc.getFirstPropertyValue<string>(
-			"x-microsoft-skypeteamsmeetingurl"
-		) ??
-		mc.getFirstPropertyValue<string>(
-			"x-microsoft-skypeteamsmeetingurl"
-		);
+	const conferenceUrl =
+		pickConferenceUrl(allProps("conference")) ||
+		asString(firstValue<unknown>("x-google-conference"));
+	const teamsUrl = asString(
+		firstValue<unknown>("x-microsoft-skypeteamsmeetingurl")
+	);
+	const eventUrl = asString(firstValue<unknown>("url"));
 	const meetingUrl =
-		(teamsUrl && String(teamsUrl)) ||
+		teamsUrl ||
+		conferenceUrl ||
 		detectMeetingUrl(location) ||
 		detectMeetingUrl(description) ||
+		detectMeetingUrl(eventUrl) ||
 		detectGenericUrl(description) ||
 		detectGenericUrl(location) ||
+		detectGenericUrl(eventUrl) ||
 		"";
+
+	const categories: string[] = [];
+	for (const prop of allProps("categories")) {
+		for (const value of safeValues(prop)) {
+			const text = asString(value).trim();
+			if (text) categories.push(text);
+		}
+	}
+
+	const rrule = mc.getFirstPropertyValue<unknown>("rrule");
 
 	const dedupKey = `${calendar.id}::${master.uid}::${localDateKey(start)}`;
 	const legacyDedupKey = `${calendar.id}::${master.uid}::${start
@@ -369,6 +401,7 @@ function buildMeeting(opts: BuildOptions): Meeting {
 		legacyDedupKey,
 		uid: master.uid,
 		recurring,
+		isException,
 		calendarId: calendar.id,
 		title,
 		start,
@@ -376,9 +409,29 @@ function buildMeeting(opts: BuildOptions): Meeting {
 		allDay,
 		location,
 		description,
-		organizer,
+		organizer: organizerName,
+		organizerEmail,
 		attendees,
+		attendeeDetails,
 		meetingUrl,
+		conferenceUrl,
+		url: eventUrl,
+		categories,
+		status: normalizeStatus(asString(firstValue<unknown>("status"))),
+		busyStatus: readBusyStatus(firstValue),
+		privacy: normalizePrivacy(asString(firstValue<unknown>("class"))),
+		priority: asNumber(firstValue<unknown>("priority")),
+		sequence: asNumber(firstValue<unknown>("sequence")) ?? 0,
+		created: asDate(firstValue<unknown>("created")),
+		lastModified: asDate(firstValue<unknown>("last-modified")),
+		timezone: readTimezone(master),
+		recurrenceRule: rrule ? asString(rrule) : "",
+		recurrenceText: describeRecurrence(rrule),
+		geo: readGeo(firstValue<unknown>("geo")),
+		attachments: allProps("attach")
+			.map((p) => asString(p.getFirstValue()).trim())
+			.filter(Boolean),
+		reminderMinutes: readReminderMinutes(allSubs("valarm")),
 	};
 }
 
@@ -386,6 +439,310 @@ function buildMeeting(opts: BuildOptions): Meeting {
 function localDateKey(d: Date): string {
 	const pad = (n: number) => String(n).padStart(2, "0");
 	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function firstParam(
+	prop: MinimalProperty | null | undefined,
+	name: string
+): string {
+	if (!prop) return "";
+	let raw: string | string[] | undefined;
+	try {
+		raw = prop.getParameter(name);
+	} catch {
+		return "";
+	}
+	if (Array.isArray(raw)) return asString(raw[0]).trim();
+	return asString(raw).trim();
+}
+
+function safeValues(prop: MinimalProperty): unknown[] {
+	try {
+		return prop.getValues();
+	} catch {
+		const single = prop.getFirstValue();
+		return single === null || single === undefined ? [] : [single];
+	}
+}
+
+function parseAttendee(prop: MinimalProperty): MeetingAttendee {
+	const value = cleanContact(asString(prop.getFirstValue()).trim());
+	const paramEmail = cleanContact(firstParam(prop, "email"));
+	const email = value.includes("@") ? value : paramEmail;
+	const cn = firstParam(prop, "cn");
+	return {
+		// Matches the historical behaviour: CN when present, else the address.
+		name: cn || email || value,
+		email,
+		status: normalizePartstat(firstParam(prop, "partstat")),
+		role: normalizeRole(firstParam(prop, "role")),
+		type: normalizeCutype(firstParam(prop, "cutype")),
+		rsvp: firstParam(prop, "rsvp").toUpperCase() === "TRUE",
+	};
+}
+
+function normalizePartstat(raw: string): AttendeeStatus {
+	switch (raw.toUpperCase()) {
+		case "ACCEPTED":
+			return "accepted";
+		case "DECLINED":
+			return "declined";
+		case "TENTATIVE":
+			return "tentative";
+		case "DELEGATED":
+			return "delegated";
+		case "NEEDS-ACTION":
+			return "needs-action";
+		default:
+			return "";
+	}
+}
+
+function normalizeRole(raw: string): AttendeeRole {
+	switch (raw.toUpperCase()) {
+		case "CHAIR":
+			return "chair";
+		case "OPT-PARTICIPANT":
+			return "optional";
+		case "NON-PARTICIPANT":
+			return "non-participant";
+		default:
+			// RFC 5545 default is REQ-PARTICIPANT.
+			return "required";
+	}
+}
+
+function normalizeCutype(raw: string): AttendeeType {
+	switch (raw.toUpperCase()) {
+		case "ROOM":
+			return "room";
+		case "RESOURCE":
+			return "resource";
+		case "GROUP":
+			return "group";
+		case "INDIVIDUAL":
+		case "":
+			return "individual";
+		default:
+			return "unknown";
+	}
+}
+
+function normalizeStatus(raw: string): EventStatus {
+	switch (raw.toUpperCase()) {
+		case "TENTATIVE":
+			return "tentative";
+		case "CANCELLED":
+			return "cancelled";
+		default:
+			return "confirmed";
+	}
+}
+
+function normalizePrivacy(raw: string): EventPrivacy {
+	switch (raw.toUpperCase()) {
+		case "PRIVATE":
+			return "private";
+		case "CONFIDENTIAL":
+			return "confidential";
+		case "PUBLIC":
+			return "public";
+		default:
+			return "";
+	}
+}
+
+function readBusyStatus(
+	firstValue: <T>(name: string) => T | null
+): BusyStatus {
+	const ms = asString(
+		firstValue<unknown>("x-microsoft-cdo-busystatus")
+	).toUpperCase();
+	switch (ms) {
+		case "FREE":
+			return "free";
+		case "TENTATIVE":
+			return "tentative";
+		case "BUSY":
+			return "busy";
+		case "OOF":
+			return "oof";
+		case "WORKINGELSEWHERE":
+			return "working-elsewhere";
+	}
+	// TRANSP is the standards-compliant fallback: transparent means the event
+	// does not block time.
+	const transp = asString(firstValue<unknown>("transp")).toUpperCase();
+	if (transp === "TRANSPARENT") return "free";
+	if (transp === "OPAQUE") return "busy";
+	return "";
+}
+
+/** Prefer a video conference entry, else the first CONFERENCE property. */
+function pickConferenceUrl(props: MinimalProperty[]): string {
+	let fallback = "";
+	for (const prop of props) {
+		const uri = asString(prop.getFirstValue()).trim();
+		if (!uri) continue;
+		if (!fallback) fallback = uri;
+		if (firstParam(prop, "feature").toUpperCase().includes("VIDEO")) {
+			return uri;
+		}
+	}
+	return fallback;
+}
+
+function readTimezone(master: MinimalEvent): string {
+	const param = firstParam(
+		master.component.getFirstProperty("dtstart"),
+		"tzid"
+	);
+	if (param) return param;
+	return asString(master.startDate?.zone?.tzid).trim();
+}
+
+function readGeo(raw: unknown): GeoPoint | null {
+	if (raw === null || raw === undefined) return null;
+	let parts: unknown[];
+	if (Array.isArray(raw)) {
+		parts = raw;
+	} else {
+		parts = asString(raw).split(/[;,]/);
+	}
+	const lat = Number(parts[0]);
+	const lon = Number(parts[1]);
+	if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+	return { lat, lon };
+}
+
+/** Minutes before the start that the first VALARM fires. */
+function readReminderMinutes(alarms: MinimalComponent[]): number | null {
+	for (const alarm of alarms) {
+		const trigger = alarm.getFirstPropertyValue<unknown>("trigger");
+		if (!trigger || typeof trigger !== "object") continue;
+		const toSeconds = (trigger as { toSeconds?: unknown }).toSeconds;
+		if (typeof toSeconds !== "function") continue;
+		let seconds: number;
+		try {
+			seconds = Number(
+				(toSeconds as () => number).call(trigger)
+			);
+		} catch {
+			continue;
+		}
+		if (!Number.isFinite(seconds)) continue;
+		// Negative durations mean "before the start", which is the only form
+		// worth surfacing as a lead time.
+		return Math.round(-seconds / 60);
+	}
+	return null;
+}
+
+const WEEKDAY_LABEL: Record<string, string> = {
+	SU: "Sun",
+	MO: "Mon",
+	TU: "Tue",
+	WE: "Wed",
+	TH: "Thu",
+	FR: "Fri",
+	SA: "Sat",
+};
+
+const FREQ_UNIT: Record<string, string> = {
+	SECONDLY: "second",
+	MINUTELY: "minute",
+	HOURLY: "hour",
+	DAILY: "day",
+	WEEKLY: "week",
+	MONTHLY: "month",
+	YEARLY: "year",
+};
+
+function describeRecurrence(rrule: unknown): string {
+	if (!rrule || typeof rrule !== "object") return "";
+	const rule = rrule as {
+		freq?: string;
+		interval?: number;
+		count?: number;
+		until?: unknown;
+		parts?: Record<string, unknown>;
+	};
+	const unit = FREQ_UNIT[asString(rule.freq).toUpperCase()];
+	if (!unit) return "";
+	const interval =
+		typeof rule.interval === "number" && rule.interval > 1
+			? rule.interval
+			: 1;
+	let text = interval === 1 ? `Every ${unit}` : `Every ${interval} ${unit}s`;
+
+	const byday = rule.parts?.["BYDAY"];
+	if (Array.isArray(byday) && byday.length > 0) {
+		const days = byday
+			.map((d) => asString(d).toUpperCase().replace(/^[+-]?\d+/, ""))
+			.map((d) => WEEKDAY_LABEL[d] ?? "")
+			.filter(Boolean);
+		if (days.length > 0) text += ` on ${days.join(", ")}`;
+	}
+	if (typeof rule.count === "number" && rule.count > 0) {
+		text += `, ${rule.count} times`;
+	}
+	const until = asDate(rule.until);
+	if (until) text += `, until ${localDateKey(until)}`;
+	return text;
+}
+
+function asString(value: unknown): string {
+	if (value === null || value === undefined) return "";
+	if (typeof value === "string") return value;
+	if (typeof value === "number" || typeof value === "boolean") {
+		return String(value);
+	}
+	// ICAL.Recur, ICAL.Duration and friends serialize through their own
+	// toString(). Anything left with the default one would only stringify to
+	// "[object Object]", so treat it as absent.
+	const toString = (value as { toString?: unknown }).toString;
+	if (
+		typeof toString === "function" &&
+		toString !== Object.prototype.toString
+	) {
+		try {
+			const out = (toString as () => unknown).call(value);
+			return typeof out === "string" ? out : "";
+		} catch {
+			return "";
+		}
+	}
+	return "";
+}
+
+function asNumber(value: unknown): number | null {
+	if (value === null || value === undefined || value === "") return null;
+	const n = Number(value);
+	return Number.isFinite(n) ? n : null;
+}
+
+/** ICAL.Time values expose toJSDate(); plain strings and Dates also occur. */
+function asDate(value: unknown): Date | null {
+	if (!value) return null;
+	if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+	if (typeof value === "object") {
+		const toJSDate = (value as { toJSDate?: unknown }).toJSDate;
+		if (typeof toJSDate === "function") {
+			try {
+				const d = (toJSDate as () => Date).call(value);
+				return d instanceof Date && !Number.isNaN(d.getTime())
+					? d
+					: null;
+			} catch {
+				return null;
+			}
+		}
+	}
+	if (typeof value === "string") {
+		const d = new Date(value);
+		return Number.isNaN(d.getTime()) ? null : d;
+	}
+	return null;
 }
 
 function detectMeetingUrl(text: string): string {
