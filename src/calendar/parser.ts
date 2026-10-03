@@ -178,6 +178,8 @@ export function parseICS(ics: string, opts: ParseOptions): Meeting[] {
 			const iter = event.iterator();
 			let emitted = 0;
 			let iterations = 0;
+			// Decided once, from the first occurrence — see the note below.
+			let iteratorDroppedTime = false;
 			while (
 				emitted < MAX_RECURRENCE_OCCURRENCES &&
 				iterations < MAX_RECURRENCE_ITERATIONS
@@ -212,30 +214,29 @@ export function parseICS(ics: string, opts: ParseOptions): Meeting[] {
 					end = new Date(start.getTime() + masterDurationMs);
 				}
 				if (overrideCancelled) continue;
-				// Safety net: if the recurrence iterator dropped the time-of-day
-				// (returns midnight) but the master event has a real start time,
-				// restore it. Catches unmapped timezone labels.
-				if (
-					!masterAllDay &&
-					start.getHours() === 0 &&
-					start.getMinutes() === 0 &&
-					(masterHours !== 0 || masterMinutes !== 0)
-				) {
-					// A timed occurrence landing on local midnight is an
-					// artifact of DST offset math — the UTC components still
-					// hold the correct calendar day (issue #15). A date-only
-					// occurrence is already on the correct local day.
-					const fixed = next.isDate
-						? new Date(
-								start.getFullYear(),
-								start.getMonth(),
-								start.getDate()
-							)
-						: new Date(
-								start.getUTCFullYear(),
-								start.getUTCMonth(),
-								start.getUTCDate()
-							);
+				// The first occurrence of an RRULE is DTSTART itself, so it
+				// must carry the master's time-of-day. If it comes back at
+				// local midnight instead, the iterator lost the time for the
+				// whole series (an unmapped timezone label) and every
+				// occurrence needs it restored. Deciding this once — rather
+				// than per occurrence — is what keeps a legitimately
+				// midnight-shifted occurrence intact: an event whose UTC
+				// offset difference happens to land it on 00:00 local (and
+				// therefore on the neighbouring calendar day) is correct as
+				// computed and must not be rewritten.
+				if (iterations === 1) {
+					iteratorDroppedTime =
+						!masterAllDay &&
+						(masterHours !== 0 || masterMinutes !== 0) &&
+						start.getHours() === 0 &&
+						start.getMinutes() === 0;
+				}
+				if (iteratorDroppedTime) {
+					const fixed = new Date(
+						start.getFullYear(),
+						start.getMonth(),
+						start.getDate()
+					);
 					fixed.setHours(masterHours, masterMinutes, 0, 0);
 					const shiftMs = fixed.getTime() - start.getTime();
 					start = fixed;
