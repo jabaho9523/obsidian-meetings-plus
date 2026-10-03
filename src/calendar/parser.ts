@@ -228,7 +228,6 @@ export function parseICS(ics: string, opts: ParseOptions): Meeting[] {
 					start = next.toJSDate();
 					end = new Date(start.getTime() + masterDurationMs);
 				}
-				if (overrideCancelled) continue;
 
 				// The first occurrence of an RRULE is DTSTART itself, so it
 				// must carry the master's time-of-day. If it comes back at
@@ -247,6 +246,7 @@ export function parseICS(ics: string, opts: ParseOptions): Meeting[] {
 						start.getHours() === 0 &&
 						start.getMinutes() === 0;
 				}
+				if (overrideCancelled) continue;
 				if (iteratorDroppedTime) {
 					const fixed = new Date(
 						start.getFullYear(),
