@@ -203,7 +203,7 @@ export class CalendarEditorModal extends Modal {
 		new Setting(contentEl)
 			.setName("Template")
 			.setDesc(
-				"Supports {{title}}, {{date}}, {{start:HH:mm}}, {{end:HH:mm}}, {{duration}}, {{location}}, {{meeting_url}}, {{description}}, {{organizer}}, {{attendees}}, {{attendees_list}}, {{attendees_wikilinks}}, {{calendar}}, {{uid}}, {{dedup_key}}, {{tags}}."
+				"Supports {{title}}, {{date}}, {{start:HH:mm}}, {{end:HH:mm}}, {{end_date}}, {{duration}}, {{duration_hm}}, {{location}}, {{meeting_url}}, {{conference_url}}, {{event_url}}, {{description}}, {{organizer}}, {{organizer_email}}, {{attendees}}, {{attendees_list}}, {{attendees_wikilinks}}, {{attendees_emails}}, {{attendees_table}}, {{attendee_count}}, {{required_attendees}}, {{optional_attendees}}, {{attendees_accepted}}, {{attendees_declined}}, {{attendees_tentative}}, {{attendees_pending}}, {{rooms}}, {{categories}}, {{categories_yaml}}, {{status}}, {{busy_status}}, {{privacy}}, {{priority}}, {{sequence}}, {{created}}, {{last_modified}}, {{timezone}}, {{recurrence}}, {{recurrence_rule}}, {{is_recurring}}, {{is_exception}}, {{all_day}}, {{reminder_minutes}}, {{geo}}, {{geo_url}}, {{attachments}}, {{attachments_list}}, {{calendar}}, {{uid}}, {{dedup_key}}, {{tags}}."
 			)
 			.addTextArea((t: TextAreaComponent) => {
 				t.setValue(this.working.template).onChange((v) => {

@@ -19,12 +19,13 @@ declare module "ical.js" {
 		name: string;
 		getFirstValue(): unknown;
 		getValues(): unknown[];
-		getParameter(name: string): string | undefined;
+		getParameter(name: string): string | string[] | undefined;
 	}
 
 	interface ICALComponent {
 		name: string;
 		getAllSubcomponents(name: string): ICALComponent[];
+		hasProperty(name: string): boolean;
 		getFirstSubcomponent(name: string): ICALComponent | null;
 		getAllProperties(name?: string): ICALProperty[];
 		getFirstProperty(name: string): ICALProperty | null;

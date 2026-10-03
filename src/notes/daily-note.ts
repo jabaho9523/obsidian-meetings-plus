@@ -75,7 +75,7 @@ function buildBlock(
 	} else {
 		for (const m of meetings) {
 			const time = formatMeetingTime(m.start, timeFormat);
-			const existing = noteIndex.findExistingNote(m.dedupKey);
+			const existing = noteIndex.findNoteForMeeting(m);
 			if (existing) {
 				lines.push(`- **${time}** [[${existing.basename}]]`);
 			} else {
