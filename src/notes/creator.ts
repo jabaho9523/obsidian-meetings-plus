@@ -27,6 +27,24 @@ export async function createOrOpenMeetingNote(
 		return existing;
 	}
 
+	// Notes written by 0.5.6 and earlier carry a UTC-dated key, which names the
+	// wrong day for all-day and early-morning events east of UTC. Adopt those
+	// notes and rewrite the key, so this costs a lookup only once per note.
+	const legacyKeyed =
+		meeting.legacyDedupKey === meeting.dedupKey
+			? null
+			: noteIndex.findExistingNoteVerified(meeting.legacyDedupKey);
+	if (legacyKeyed) {
+		await app.fileManager.processFrontMatter(
+			legacyKeyed,
+			(fm: Record<string, unknown>) => {
+				fm["meeting_dedup_key"] = meeting.dedupKey;
+			}
+		);
+		await openFile(app, legacyKeyed, opts.openInNewPane);
+		return legacyKeyed;
+	}
+
 	// Rescheduled-meeting fallback: same UID, different start date.
 	// Recurring occurrences share one UID, so a single existing note would
 	// wrongly match from the second occurrence on — skip them entirely.
