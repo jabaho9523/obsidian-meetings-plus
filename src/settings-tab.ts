@@ -5,6 +5,7 @@ import {
 	setIcon,
 } from "obsidian";
 import MeetingsPlusPlugin from "./main";
+import { MAX_LOOK_BACK_DAYS } from "./constants";
 import { DEFAULT_SETTINGS, makeDefaultCalendar } from "./settings";
 import { TimeFormat } from "./types";
 import { CalendarEditorModal } from "./ui/calendar-editor-modal";
@@ -67,10 +68,10 @@ export class MeetingsPlusSettingTab extends PluginSettingTab {
 		);
 		this.numberField(
 			"Look-back window (days)",
-			"How many days of past meetings you can navigate back to. Set to 0 to disable.",
+			"How many days of past meetings you can browse (up to 365). Set to 0 to disable. Some calendars, such as Outlook published links, only include recent history.",
 			"lookBackDays",
 			0,
-			30
+			MAX_LOOK_BACK_DAYS
 		);
 		this.toggle(
 			"Enable pre-meeting notifications",

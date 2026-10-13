@@ -1,4 +1,4 @@
-import { App } from "obsidian";
+import { App, debounce } from "obsidian";
 import { MeetingsPlusSettings } from "../settings";
 import { CalendarConfig, FetchStatus, Meeting } from "../types";
 import { TypedEventBus } from "../util/events";
@@ -7,12 +7,13 @@ import { parseICS } from "./parser";
 import { MeetingCache } from "./cache";
 
 /**
- * Fixed parse window. The user's `lookAheadDays` / `lookBackDays` settings
+ * Parse window. The user's `lookAheadDays` / `lookBackDays` settings
  * control what the sidebar *shows*; parsing more here gives the date picker
- * room to jump without re-fetching.
+ * room to jump without re-fetching. The back window grows with
+ * `lookBackDays` so older days are parsed and cached.
  */
 const PARSE_WINDOW_DAYS = 180;
-const PARSE_BACK_DAYS = 30;
+const MIN_PARSE_BACK_DAYS = 30;
 
 export interface CalendarManagerEvents extends Record<string, unknown> {
 	"refresh:started": { calendarId: string | null };
@@ -29,6 +30,13 @@ export class CalendarManager {
 	private status = new Map<string, FetchStatus>();
 	private timerHandle: number | null = null;
 	private inFlight = new Set<string>();
+	private backDays: number;
+	// Look-back is typed digit by digit; refetch once the value settles.
+	private refreshForBackWindow = debounce(
+		() => void this.refreshAll(),
+		1000,
+		true
+	);
 
 	constructor(
 		private readonly app: App,
@@ -36,6 +44,7 @@ export class CalendarManager {
 		private readonly persistCache: SaveCallback
 	) {
 		this.cache = new MeetingCache(this.getSettings().cache);
+		this.backDays = this.parseBackDays();
 		void this.app; // currently unused, kept for symmetry / future extensions
 	}
 
@@ -69,6 +78,11 @@ export class CalendarManager {
 
 	onSettingsChanged(): void {
 		this.scheduleNextTick();
+		const backDays = this.parseBackDays();
+		if (backDays !== this.backDays) {
+			this.backDays = backDays;
+			this.refreshForBackWindow();
+		}
 	}
 
 	dropCalendar(calendarId: string): void {
@@ -121,7 +135,7 @@ export class CalendarManager {
 			const windowStart = new Date(
 				todayStart.getFullYear(),
 				todayStart.getMonth(),
-				todayStart.getDate() - PARSE_BACK_DAYS
+				todayStart.getDate() - this.parseBackDays()
 			);
 			const windowEnd = new Date(
 				todayStart.getFullYear(),
@@ -163,6 +177,10 @@ export class CalendarManager {
 		} finally {
 			this.inFlight.delete(cal.id);
 		}
+	}
+
+	private parseBackDays(): number {
+		return Math.max(MIN_PARSE_BACK_DAYS, this.getSettings().lookBackDays);
 	}
 
 	private scheduleNextTick(): void {
