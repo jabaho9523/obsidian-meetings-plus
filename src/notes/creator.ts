@@ -27,6 +27,24 @@ export async function createOrOpenMeetingNote(
 		return existing;
 	}
 
+	// Notes written by 0.5.6 and earlier carry a UTC-dated key, which names the
+	// wrong day for all-day and early-morning events east of UTC. Adopt those
+	// notes and rewrite the key, so this costs a lookup only once per note.
+	const legacyKeyed =
+		meeting.legacyDedupKey === meeting.dedupKey
+			? null
+			: noteIndex.findExistingNoteVerified(meeting.legacyDedupKey);
+	if (legacyKeyed) {
+		await app.fileManager.processFrontMatter(
+			legacyKeyed,
+			(fm: Record<string, unknown>) => {
+				fm["meeting_dedup_key"] = meeting.dedupKey;
+			}
+		);
+		await openFile(app, legacyKeyed, opts.openInNewPane);
+		return legacyKeyed;
+	}
+
 	// Rescheduled-meeting fallback: same UID, different start date.
 	// Recurring occurrences share one UID, so a single existing note would
 	// wrongly match from the second occurrence on — skip them entirely.
@@ -157,7 +175,31 @@ async function appendToDailyNoteSection(
 	}
 
 	const original = await app.vault.read(file);
-	const existing = SECTION_MARKER_RE(meeting.dedupKey).exec(original);
+	let existing = SECTION_MARKER_RE(meeting.dedupKey).exec(original);
+	if (!existing && meeting.legacyDedupKey !== meeting.dedupKey) {
+		// Sections written by 0.5.6 and earlier carry the UTC-dated key.
+		// Rekey only the two marker lines; the body is left untouched.
+		const legacy = SECTION_MARKER_RE(meeting.legacyDedupKey).exec(original);
+		if (legacy) {
+			const key = escapeRegex(meeting.legacyDedupKey);
+			const rekeyed = legacy[0]
+				.replace(
+					new RegExp(`^${markerSource("section", key)}`),
+					() => `<!-- mp:section dedup=${meeting.dedupKey} -->`
+				)
+				.replace(
+					new RegExp(`${markerSource("section/end", key)}$`),
+					() => `<!-- mp:section/end dedup=${meeting.dedupKey} -->`
+				);
+			await app.vault.modify(
+				file,
+				original.slice(0, legacy.index) +
+					rekeyed +
+					original.slice(legacy.index + legacy[0].length)
+			);
+			existing = legacy;
+		}
+	}
 	if (existing) {
 		const line = original.slice(0, existing.index).split("\n").length - 1;
 		const leaf = app.workspace.getLeaf(opts.openInNewPane ? "tab" : false);

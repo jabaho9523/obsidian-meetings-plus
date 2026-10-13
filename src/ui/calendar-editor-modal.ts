@@ -190,6 +190,8 @@ export class CalendarEditorModal extends Modal {
 					})
 			);
 
+		new Setting(contentEl).setName("Filters").setHeading();
+
 		new Setting(contentEl)
 			.setName("Exclude all-day events")
 			.addToggle((t) =>
@@ -201,9 +203,60 @@ export class CalendarEditorModal extends Modal {
 			);
 
 		new Setting(contentEl)
+			.setName("Your email address")
+			.setDesc(
+				"Used to find your own entry in each event's attendee list, so the plugin knows how you replied. Separate several addresses with commas if the account has aliases."
+			)
+			.addText((t) =>
+				t
+					.setPlaceholder("Email address")
+					.setValue(this.working.myEmail)
+					.onChange((v) => {
+						this.working.myEmail = v;
+					})
+			);
+
+		new Setting(contentEl)
+			.setName("Exclude meetings you declined")
+			.setDesc(
+				"Hide events you replied 'no' to. Needs your email address above, and only works on feeds that publish attendee replies."
+			)
+			.addToggle((t) =>
+				t
+					.setValue(this.working.excludeDeclined)
+					.onChange((v) => {
+						this.working.excludeDeclined = v;
+					})
+			);
+
+		new Setting(contentEl)
+			.setName("Exclude out-of-office blocks")
+			.setDesc("Hide events your calendar marks as out of office.")
+			.addToggle((t) =>
+				t
+					.setValue(this.working.excludeOutOfOffice)
+					.onChange((v) => {
+						this.working.excludeOutOfOffice = v;
+					})
+			);
+
+		new Setting(contentEl)
+			.setName("Exclude events marked as free")
+			.setDesc(
+				"Hide events that do not block time — reminders, birthdays, and similar."
+			)
+			.addToggle((t) =>
+				t
+					.setValue(this.working.excludeFreeTime)
+					.onChange((v) => {
+						this.working.excludeFreeTime = v;
+					})
+			);
+
+		new Setting(contentEl)
 			.setName("Template")
 			.setDesc(
-				"Supports {{title}}, {{date}}, {{start:HH:mm}}, {{end:HH:mm}}, {{duration}}, {{location}}, {{meeting_url}}, {{description}}, {{organizer}}, {{attendees}}, {{attendees_list}}, {{attendees_wikilinks}}, {{calendar}}, {{uid}}, {{dedup_key}}, {{tags}}."
+				"Supports {{title}}, {{date}}, {{start:HH:mm}}, {{end:HH:mm}}, {{end_date}}, {{duration}}, {{duration_hm}}, {{location}}, {{meeting_url}}, {{conference_url}}, {{event_url}}, {{description}}, {{organizer}}, {{organizer_email}}, {{attendees}}, {{attendees_list}}, {{attendees_wikilinks}}, {{attendees_emails}}, {{attendees_table}}, {{attendee_count}}, {{my_response}}, {{required_attendees}}, {{optional_attendees}}, {{attendees_accepted}}, {{attendees_declined}}, {{attendees_tentative}}, {{attendees_pending}}, {{rooms}}, {{categories}}, {{categories_yaml}}, {{status}}, {{busy_status}}, {{privacy}}, {{priority}}, {{sequence}}, {{created}}, {{last_modified}}, {{timezone}}, {{recurrence}}, {{recurrence_rule}}, {{is_recurring}}, {{is_exception}}, {{all_day}}, {{reminder_minutes}}, {{geo}}, {{geo_url}}, {{attachments}}, {{attachments_list}}, {{calendar}}, {{uid}}, {{dedup_key}}, {{tags}}."
 			)
 			.addTextArea((t: TextAreaComponent) => {
 				t.setValue(this.working.template).onChange((v) => {

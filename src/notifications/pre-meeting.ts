@@ -37,7 +37,7 @@ export class PreMeetingScheduler {
 			const fireAt = meeting.start.getTime() - leadMs;
 			if (fireAt <= now) continue;
 			if (fireAt > horizon) continue;
-			if (this.deps.noteIndex.findExistingNote(meeting.dedupKey)) continue;
+			if (this.deps.noteIndex.findNoteForMeeting(meeting)) continue;
 			const delay = fireAt - now;
 			const handle = window.setTimeout(() => {
 				this.notify(meeting);

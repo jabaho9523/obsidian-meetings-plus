@@ -410,7 +410,7 @@ export class MeetingsPlusView extends ItemView {
 	}
 
 	private hasNote(meeting: Meeting): boolean {
-		return Boolean(this.plugin.noteIndex.findExistingNote(meeting.dedupKey));
+		return Boolean(this.plugin.noteIndex.findNoteForMeeting(meeting));
 	}
 
 	private visibleMeetings(): Meeting[] {

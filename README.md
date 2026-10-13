@@ -104,18 +104,52 @@ Each calendar has its own editable template. Variables are written as `{{name}}`
 | `{{date}}` | Meeting date in `YYYY-MM-DD` |
 | `{{start}}`, `{{start:HH:mm}}` | Start datetime |
 | `{{end}}`, `{{end:HH:mm}}` | End datetime |
+| `{{end_date}}` | Last day the event covers (all-day `DTEND` is exclusive, so this is the day you expect) |
 | `{{duration}}` | Duration in minutes |
+| `{{duration_hm}}` | Duration as `1h 30m` |
+| `{{all_day}}` | `true` / `false` |
+| `{{timezone}}` | Timezone the event was authored in, e.g. `Europe/Berlin` |
 | `{{location}}` | Location string |
-| `{{meeting_url}}` | First detected meeting URL |
+| `{{geo}}`, `{{geo_url}}` | `GEO` coordinates, and an OpenStreetMap link to them |
+| `{{meeting_url}}` | Best meeting link found (see below) |
+| `{{conference_url}}` | RFC 7986 `CONFERENCE` URI (Google Meet, Teams, Zoom) |
+| `{{event_url}}` | The event's `URL` property |
 | `{{description}}` | Full description, stripped of HTML |
-| `{{organizer}}` | Organizer name |
+| `{{organizer}}`, `{{organizer_email}}` | Organizer display name and address |
 | `{{attendees}}` | Comma-separated attendee names |
 | `{{attendees_list}}` | Bulleted list of attendees |
 | `{{attendees_wikilinks}}` | Comma-separated `[[Name]]` wikilinks |
+| `{{attendees_emails}}` | Comma-separated attendee addresses |
+| `{{attendees_table}}` | Markdown table of name, response, and role |
+| `{{attendee_count}}` | Number of people invited (rooms and equipment excluded) |
+| `{{my_response}}` | How *you* replied, when the calendar's email address is configured |
+| `{{required_attendees}}`, `{{optional_attendees}}` | Split by `ROLE` |
+| `{{attendees_accepted}}`, `{{attendees_declined}}`, `{{attendees_tentative}}`, `{{attendees_pending}}` | Split by `PARTSTAT` reply |
+| `{{rooms}}` | Booked rooms and equipment (`CUTYPE=ROOM`/`RESOURCE`) |
+| `{{categories}}`, `{{categories_yaml}}` | Event `CATEGORIES`, plain or as a YAML list |
+| `{{status}}` | `confirmed` or `tentative` |
+| `{{busy_status}}` | `free`, `tentative`, `busy`, `oof`, or `working-elsewhere` |
+| `{{privacy}}` | `public`, `private`, or `confidential` (`CLASS`) |
+| `{{priority}}` | `PRIORITY` (0–9) |
+| `{{recurrence}}` | Human-readable rule, e.g. `Every 2 weeks on Mon, Wed` |
+| `{{recurrence_rule}}` | Raw `RRULE` |
+| `{{is_recurring}}`, `{{is_exception}}` | Whether this is a series occurrence, and whether it was individually moved or edited |
+| `{{reminder_minutes}}` | Lead time of the event's own reminder (`VALARM`) |
+| `{{attachments}}`, `{{attachments_list}}` | `ATTACH` links |
+| `{{created}}`, `{{last_modified}}` | Timestamps from the feed — accept a format string like the date variables |
+| `{{sequence}}` | `SEQUENCE`, bumped by the organizer on every revision |
 | `{{calendar}}` | Calendar display name |
 | `{{uid}}` | ICS UID |
 | `{{dedup_key}}` | Internal dedup key (used in frontmatter) |
 | `{{tags}}` | Calendar's tags as YAML list |
+
+`{{meeting_url}}` prefers the Teams link Outlook publishes, then the standard
+`CONFERENCE` property, then a Teams/Zoom/Meet/Webex link found in the location or
+description, and finally any URL in those fields.
+
+Overridden occurrences of a recurring event — the ones you moved or renamed for a
+single week — are read from their own entry, so the title, location, and attendee
+list reflect that occurrence rather than the series.
 
 ## Templater
 
@@ -146,7 +180,18 @@ Global options:
 - **Run Templater on new notes** — post-process meeting notes through Templater if installed
 - **Open dashboard on startup** — auto-open the sidebar when Obsidian loads
 
-Per-calendar options live in the calendar editor and cover URL, color, folder, title pattern, tags, template, and which features (standalone notes, daily-note append, all-day filtering) apply.
+Per-calendar options live in the calendar editor and cover URL, color, folder, title pattern, tags, template, and which features (standalone notes, daily-note append) apply.
+
+### Filters
+
+Each calendar can hide events you don't want cluttering the sidebar:
+
+- **Exclude all-day events**
+- **Exclude meetings you declined** — needs **Your email address**, so the plugin can find your own entry in the attendee list. Several addresses can be given, separated by commas, if the account has aliases. Feeds that don't publish attendee replies (many "publish calendar" URLs strip them) leave this with nothing to match, in which case nothing is hidden.
+- **Exclude out-of-office blocks** — events your calendar marks as out of office
+- **Exclude events marked as free** — reminders, birthdays, and anything else that doesn't block time
+
+Filters apply when a feed is parsed, so changing one re-fetches that calendar and takes effect right away. Filtered events are hidden everywhere — sidebar, daily-note list, and pre-meeting notifications.
 
 ![Settings](docs/screenshot-3.png)
 ![Calendar editor](docs/screenshot-4.png)
