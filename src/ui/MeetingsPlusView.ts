@@ -2,6 +2,7 @@ import { ItemView, Notice, WorkspaceLeaf, setIcon } from "obsidian";
 import { moment } from "../util/time";
 import MeetingsPlusPlugin from "../main";
 import {
+	MAX_LOOK_BACK_DAYS,
 	PLUGIN_NAME,
 	VIEW_TYPE_MEETINGS_PLUS,
 } from "../constants";
@@ -92,7 +93,7 @@ export class MeetingsPlusView extends ItemView {
 		const lookAhead = Math.max(1, this.plugin.settings.lookAheadDays);
 		const lookBack = Math.max(
 			0,
-			Math.min(30, this.plugin.settings.lookBackDays)
+			Math.min(MAX_LOOK_BACK_DAYS, this.plugin.settings.lookBackDays)
 		);
 		const now = Date.now();
 		const today = startOfDay(new Date(now));

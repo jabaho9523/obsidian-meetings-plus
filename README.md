@@ -27,7 +27,7 @@ Meetings Plus subscribes to the calendar you already use (Outlook, Google, iClou
 - Subscribe to one or more **ICS calendar feeds** (Outlook, Google, iCloud, Proton, Fastmail — any standards-compliant ICS source)
 - Today's meetings appear in a sidebar, sorted by time
 - **Multi-day agenda**: flat per-day list with empty days collapsed into a one-line "N days without events" hint. Jump to any future date with the built-in date picker; quick-set how many days to show from the sidebar header
-- **Catch up on past meetings**: navigate back up to 30 days (configurable, off by setting 0) and click a past meeting to write up its note after the fact — handy for transposing paper notes
+- **Catch up on past meetings**: navigate back up to 365 days (configurable, off by setting 0) and click a past meeting to write up its note after the fact — handy for transposing paper notes
 - **One click on a meeting → fully pre-filled meeting note** in your configured folder, with attendees, time, location, agenda — ready to take notes
 - **Already prepared?** The sidebar shows which meetings already have notes; clicking opens the existing one
 - Optional **pre-meeting notifications** with a configurable lead time
@@ -175,6 +175,7 @@ Global options:
 
 - **Refresh interval (minutes)** — how often calendars are fetched in the background
 - **Look-ahead window (days)** — how many days of future meetings to load
+- **Look-back window (days)** — how many days of past meetings you can browse (up to 365). Set to 0 to disable. Some calendars, such as Outlook published links, only include recent history.
 - **Enable pre-meeting notifications** — show a notice before each meeting starts
 - **Notification lead time (minutes)** — how far in advance to notify
 - **Run Templater on new notes** — post-process meeting notes through Templater if installed

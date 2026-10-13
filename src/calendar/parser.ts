@@ -26,6 +26,10 @@ const MAX_RECURRENCE_OCCURRENCES = 500;
 // thousands of pre-window occurrences to skip. Skips are bounded separately
 // from emitted occurrences so old events don't exhaust the budget (PR #9).
 const MAX_RECURRENCE_ITERATIONS = 10_000;
+// Both caps were sized for a 210-day window (30 back + 180 ahead) and scale up
+// with longer windows, so a long look-back can't use up the budget before a
+// daily series reaches its upcoming occurrences.
+const RECURRENCE_CAP_WINDOW_DAYS = 210;
 
 /**
  * Microsoft/Outlook uses proprietary timezone labels that ical.js does not
@@ -143,6 +147,13 @@ export interface ParseOptions {
 
 export function parseICS(ics: string, opts: ParseOptions): Meeting[] {
 	const { calendar, windowStart, windowEnd } = opts;
+	const capScale = Math.max(
+		1,
+		(windowEnd.getTime() - windowStart.getTime()) /
+			(RECURRENCE_CAP_WINDOW_DAYS * 86_400_000)
+	);
+	const maxOccurrences = Math.ceil(MAX_RECURRENCE_OCCURRENCES * capScale);
+	const maxIterations = Math.ceil(MAX_RECURRENCE_ITERATIONS * capScale);
 
 	const jcal = ICAL.parse(rewriteOutlookTzids(ics));
 	const root = new ICAL.Component(jcal);
@@ -196,8 +207,8 @@ export function parseICS(ics: string, opts: ParseOptions): Meeting[] {
 			// Decided once, from the first occurrence — see the note below.
 			let iteratorDroppedTime = false;
 			while (
-				emitted < MAX_RECURRENCE_OCCURRENCES &&
-				iterations < MAX_RECURRENCE_ITERATIONS
+				emitted < maxOccurrences &&
+				iterations < maxIterations
 			) {
 				iterations++;
 				const next = iter.next();
