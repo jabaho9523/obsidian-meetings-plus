@@ -180,6 +180,7 @@ Global options:
 - **Notification lead time (minutes)** — how far in advance to notify
 - **Run Templater on new notes** — post-process meeting notes through Templater if installed
 - **Open dashboard on startup** — auto-open the sidebar when Obsidian loads
+- **Persist calendar cache** — opt in to retaining parsed event details across restarts; leave disabled for sensitive calendars
 
 Per-calendar options live in the calendar editor and cover URL, color, folder, title pattern, tags, template, and which features (standalone notes, daily-note append) apply.
 
@@ -201,7 +202,7 @@ Filters apply when a feed is parsed, so changing one re-fetches that calendar an
 
 - Fetches each ICS feed with Obsidian's `requestUrl` (so it works on mobile and bypasses CORS)
 - Parses with [ical.js](https://github.com/mozilla-comm/ical.js) — handles timezones, recurrence rules, and the messy real-world ICS variants
-- Caches parsed meetings on disk so the sidebar loads instantly on cold start
+- Keeps parsed meetings in memory; optional on-disk caching can make cold starts faster
 - Detects Teams / Zoom / Meet / Webex links in the description, location, and Microsoft-specific properties
 - Looks up existing meeting notes via the metadata cache (`meeting_dedup_key` in frontmatter) so re-clicking a meeting opens the existing note instead of creating a duplicate
 
@@ -209,7 +210,9 @@ Everything is local and offline except the ICS fetches themselves. There are no 
 
 ## Privacy
 
-Meetings Plus only talks to the calendar URLs you configure. It does not collect, log, or transmit calendar contents, attendee names, meeting titles, or fetch URLs anywhere else. There is no analytics layer.
+Meetings Plus only talks to the HTTPS calendar URLs you configure. It does not collect, log, or transmit calendar contents, attendee names, meeting titles, or fetch URLs anywhere else. There is no analytics layer.
+
+Calendar feed addresses, including secret-token URLs, are stored in the plugin settings file. Parsed event details remain in memory by default. If you enable **Persist calendar cache**, titles, descriptions, locations, attendees, and meeting links are also stored in that local file so they survive restarts. Do not enable it when your vault configuration folder is synced or backed up somewhere you would not want that data to reach. Use the **Clear cached calendar data** command to remove the persisted cache.
 
 ## Performance notes
 

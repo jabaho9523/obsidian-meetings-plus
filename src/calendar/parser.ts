@@ -11,6 +11,7 @@ import {
 	Meeting,
 	MeetingAttendee,
 } from "../types";
+import { safeExternalUrl } from "../util/external-url";
 
 const MEETING_URL_PATTERNS: RegExp[] = [
 	/https:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^\s"'<>]+/i,
@@ -382,22 +383,25 @@ function buildMeeting(opts: BuildOptions): Meeting {
 	const attendees = attendeeDetails.map((a) => a.name).filter(Boolean);
 	const myResponse = findOwnResponse(attendeeDetails, calendar.myEmail);
 
-	const conferenceUrl =
+	const conferenceUrl = safeExternalUrl(
 		pickConferenceUrl(allProps("conference")) ||
-		asString(firstValue<unknown>("x-google-conference"));
-	const teamsUrl = asString(
-		firstValue<unknown>("x-microsoft-skypeteamsmeetingurl")
+			asString(firstValue<unknown>("x-google-conference"))
 	);
-	const eventUrl = asString(firstValue<unknown>("url"));
+	const teamsUrl = safeExternalUrl(
+		asString(firstValue<unknown>("x-microsoft-skypeteamsmeetingurl"))
+	);
+	const eventUrl = safeExternalUrl(
+		asString(firstValue<unknown>("url"))
+	);
 	const meetingUrl =
 		teamsUrl ||
 		conferenceUrl ||
-		detectMeetingUrl(location) ||
-		detectMeetingUrl(description) ||
-		detectMeetingUrl(eventUrl) ||
-		detectGenericUrl(description) ||
-		detectGenericUrl(location) ||
-		detectGenericUrl(eventUrl) ||
+		safeExternalUrl(detectMeetingUrl(location)) ||
+		safeExternalUrl(detectMeetingUrl(description)) ||
+		safeExternalUrl(detectMeetingUrl(eventUrl)) ||
+		safeExternalUrl(detectGenericUrl(description)) ||
+		safeExternalUrl(detectGenericUrl(location)) ||
+		safeExternalUrl(detectGenericUrl(eventUrl)) ||
 		"";
 
 	const categories: string[] = [];

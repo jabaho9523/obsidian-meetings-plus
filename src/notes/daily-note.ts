@@ -3,6 +3,7 @@ import { moment } from "../util/time";
 import { CalendarConfig, Meeting, TimeFormat } from "../types";
 import { NoteIndex } from "./duplicate-detector";
 import { formatMeetingTime } from "../util/time";
+import { escapeMarkdownText } from "../util/external-content";
 
 const BLOCK_START = "<!-- meetings-plus:start -->";
 const BLOCK_END = "<!-- meetings-plus:end -->";
@@ -82,7 +83,9 @@ function buildBlock(
 			if (existing) {
 				lines.push(`- **${time}** [[${existing.basename}]]`);
 			} else {
-				lines.push(`- **${time}** ${m.title} (no notes yet)`);
+				lines.push(
+					`- **${time}** ${escapeMarkdownText(m.title)} (no notes yet)`
+				);
 			}
 		}
 	}
