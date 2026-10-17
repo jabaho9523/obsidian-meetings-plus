@@ -438,7 +438,7 @@ export class MeetingsPlusView extends ItemView {
 
 	private openLink(meeting: Meeting): void {
 		if (!meeting.meetingUrl) return;
-		window.open(meeting.meetingUrl, "_blank");
+		this.plugin.openExternalUrl(meeting.meetingUrl);
 	}
 
 	private showContextMenu(meeting: Meeting, evt: MouseEvent): void {

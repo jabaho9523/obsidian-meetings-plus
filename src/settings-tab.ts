@@ -94,6 +94,22 @@ export class MeetingsPlusSettingTab extends PluginSettingTab {
 			"openDashboardOnStart"
 		);
 		new Setting(containerEl)
+			.setName("Persist calendar cache")
+			.setDesc(
+				"Keep full event details in the plugin's local data file for faster startup. Leave this off for sensitive calendars, especially when the vault configuration folder is synced or backed up."
+			)
+			.addToggle((t) =>
+				t
+					.setValue(this.plugin.settings.persistCalendarCache)
+					.onChange(async (v) => {
+						this.plugin.settings.persistCalendarCache = v;
+						this.plugin.settings.cache = v
+							? this.plugin.manager.cache.serialize()
+							: {};
+						await this.plugin.saveSettings();
+					})
+			);
+		new Setting(containerEl)
 			.setName("Hide section markers in the editor")
 			.setDesc(
 				"Hide the markers around daily-note meeting sections while editing. They stay in the file; Reading view always hides them."
@@ -249,4 +265,3 @@ export class MeetingsPlusSettingTab extends PluginSettingTab {
 			});
 	}
 }
-

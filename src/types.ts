@@ -77,7 +77,7 @@ export interface CalendarConfig {
 	id: string;
 	/** Display name shown in UI */
 	name: string;
-	/** ICS feed URL (may include basic auth: https://user:pass@host/cal.ics) */
+	/** HTTPS ICS feed URL. Secret-token URLs are supported; inline credentials are not. */
 	url: string;
 	/** Color hex for visual distinction in the sidebar (e.g. "#4a90e2") */
 	color: string;

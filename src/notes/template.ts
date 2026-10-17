@@ -1,5 +1,11 @@
 import { moment } from "../util/time";
 import { CalendarConfig, Meeting, MeetingAttendee } from "../types";
+import {
+	escapeMarkdownText,
+	escapeTemplaterSyntax,
+	yamlString,
+	yamlStringList,
+} from "../util/external-content";
 
 export interface TemplateContext {
 	meeting: Meeting;
@@ -11,7 +17,7 @@ const VAR_RE = /\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)(?::([^}]+))?\s*\}\}/g;
 export function renderTemplate(template: string, ctx: TemplateContext): string {
 	return template.replace(VAR_RE, (_match, name: string, fmt?: string) => {
 		const value = resolveVariable(name, fmt, ctx);
-		return value;
+		return escapeTemplaterSyntax(value);
 	});
 }
 
@@ -24,6 +30,8 @@ function resolveVariable(
 	switch (name) {
 		case "title":
 			return meeting.title;
+		case "title_markdown":
+			return escapeMarkdownText(meeting.title);
 		case "date":
 			return formatDate(meeting.start, "YYYY-MM-DD");
 		case "start":
@@ -43,8 +51,12 @@ function resolveVariable(
 			return formatDurationHM(durationMinutes(meeting));
 		case "location":
 			return meeting.location;
+		case "location_markdown":
+			return escapeMarkdownText(meeting.location);
 		case "meeting_url":
 			return meeting.meetingUrl;
+		case "meeting_url_markdown":
+			return escapeMarkdownText(meeting.meetingUrl);
 		case "conference_url":
 			return meeting.conferenceUrl;
 		case "event_url":
@@ -53,12 +65,20 @@ function resolveVariable(
 			return meeting.description;
 		case "organizer":
 			return meeting.organizer;
+		case "organizer_yaml":
+			return yamlString(meeting.organizer);
 		case "organizer_email":
 			return meeting.organizerEmail;
 		case "attendees":
 			return meeting.attendees.join(", ");
+		case "attendees_yaml":
+			return yamlStringList(meeting.attendees);
 		case "attendees_list":
 			return meeting.attendees.map((a) => `- ${a}`).join("\n");
+		case "attendees_list_markdown":
+			return meeting.attendees
+				.map((a) => `- ${escapeMarkdownText(a)}`)
+				.join("\n");
 		case "attendees_wikilinks":
 			return meeting.attendees.map((a) => `[[${a}]]`).join(", ");
 		case "attendees_emails":
@@ -138,12 +158,20 @@ function resolveVariable(
 			return meeting.attachments.map((a) => `- ${a}`).join("\n");
 		case "calendar":
 			return calendar.name;
+		case "calendar_yaml":
+			return yamlString(calendar.name);
 		case "uid":
 			return meeting.uid;
+		case "uid_yaml":
+			return yamlString(meeting.uid);
 		case "dedup_key":
 			return meeting.dedupKey;
+		case "dedup_key_yaml":
+			return yamlString(meeting.dedupKey);
 		case "tags":
 			return formatListYaml(calendar.tags);
+		case "tags_yaml":
+			return yamlStringList(calendar.tags);
 		default:
 			return "";
 	}
@@ -209,8 +237,7 @@ function formatDate(d: Date, fmt: string | undefined): string {
 }
 
 function formatListYaml(values: string[]): string {
-	if (!values || values.length === 0) return "[]";
-	return `[${values.join(", ")}]`;
+	return yamlStringList(values ?? []);
 }
 
 export function sanitizeFilename(name: string): string {

@@ -30,6 +30,10 @@ export class MeetingCache {
 		this.entries.delete(calendarId);
 	}
 
+	clearAll(): void {
+		this.entries.clear();
+	}
+
 	getAll(): Meeting[] {
 		const all: Meeting[] = [];
 		for (const entry of this.entries.values()) {
