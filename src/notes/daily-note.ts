@@ -1,25 +1,28 @@
 import { App, TFile, normalizePath } from "obsidian";
+import {
+	appHasDailyNotesPluginLoaded,
+	createDailyNote,
+	getDailyNoteSettings,
+} from "obsidian-daily-notes-interface";
 import { moment } from "../util/time";
 import { CalendarConfig, Meeting, TimeFormat } from "../types";
 import { NoteIndex } from "./duplicate-detector";
 import { formatMeetingTime } from "../util/time";
+import { runTemplaterIfAvailable } from "../integrations/templater";
 
 const BLOCK_START = "<!-- meetings-plus:start -->";
 const BLOCK_END = "<!-- meetings-plus:end -->";
 
-interface DailyNotesPluginSettings {
-	folder?: string;
-	format?: string;
-	template?: string;
+export interface EnsuredDailyNote {
+	file: TFile;
+	created: boolean;
 }
 
-interface InternalPluginShape {
-	enabled?: boolean;
-	instance?: {
-		options?: DailyNotesPluginSettings;
-		createDailyNote?: (date: unknown) => Promise<TFile>;
-	};
-}
+const pendingDailyNoteCreations = new WeakMap<
+	App,
+	Map<string, Promise<EnsuredDailyNote | null>>
+>();
+const pendingDailyNoteUpdates = new WeakMap<App, Promise<void>>();
 
 export interface UpdateOptions {
 	app: App;
@@ -27,10 +30,24 @@ export interface UpdateOptions {
 	meetings: Meeting[];
 	timeFormat: TimeFormat;
 	noteIndex: NoteIndex;
+	runTemplater: boolean;
 }
 
-export async function updateDailyNote(opts: UpdateOptions): Promise<void> {
-	const { app, calendars, meetings, timeFormat, noteIndex } = opts;
+export function updateDailyNote(opts: UpdateOptions): Promise<void> {
+	const previous = pendingDailyNoteUpdates.get(opts.app) ?? Promise.resolve();
+	const current = previous
+		.catch(() => undefined)
+		.then(() => updateDailyNoteOnce(opts));
+	pendingDailyNoteUpdates.set(opts.app, current);
+	return current.finally(() => {
+		if (pendingDailyNoteUpdates.get(opts.app) === current) {
+			pendingDailyNoteUpdates.delete(opts.app);
+		}
+	});
+}
+
+async function updateDailyNoteOnce(opts: UpdateOptions): Promise<void> {
+	const { app, calendars, meetings, timeFormat, noteIndex, runTemplater } = opts;
 
 	const eligibleCalendarIds = new Set(
 		calendars
@@ -51,18 +68,29 @@ export async function updateDailyNote(opts: UpdateOptions): Promise<void> {
 		.filter((m) => m.start >= today && m.start < tomorrow)
 		.sort((a, b) => a.start.getTime() - b.start.getTime());
 
-	const file = await ensureDailyNote(app);
-	if (!file) {
+	const dailyNote = await ensureDailyNote(app);
+	if (!dailyNote) {
 		console.warn(
 			"[Meetings Plus] Daily note: could not find or create today's daily note"
 		);
 		return;
 	}
+	const { file, created } = dailyNote;
 
 	const original = await app.vault.read(file);
 	const next = replaceBlock(original, buildBlock(app, todays, timeFormat, noteIndex));
 	if (next !== original) {
 		await app.vault.modify(file, next);
+	}
+	if (created && runTemplater) {
+		try {
+			await runTemplaterIfAvailable(app, file);
+		} catch (e) {
+			console.warn(
+				"[Meetings Plus] Templater post-processing failed for the daily note",
+				e
+			);
+		}
 	}
 }
 
@@ -105,9 +133,21 @@ function replaceBlock(content: string, block: string): string {
 export async function ensureDailyNote(
 	app: App,
 	date: Date = new Date()
-): Promise<TFile | null> {
-	const plugin = getDailyNotesPlugin(app);
-	const settings = plugin?.instance?.options ?? null;
+): Promise<EnsuredDailyNote | null> {
+	if (!appHasDailyNotesPluginLoaded()) {
+		console.warn(
+			"[Meetings Plus] Daily note: no Daily Notes or Periodic Notes plugin is enabled"
+		);
+		return null;
+	}
+
+	let settings: ReturnType<typeof getDailyNoteSettings>;
+	try {
+		settings = getDailyNoteSettings();
+	} catch (error) {
+		console.warn("[Meetings Plus] Daily note: could not read note settings", error);
+		return null;
+	}
 	const format = settings?.format || "YYYY-MM-DD";
 	const folder = (settings?.folder ?? "").trim();
 	const filename = moment(date).format(format);
@@ -116,44 +156,53 @@ export async function ensureDailyNote(
 	);
 
 	const existing = app.vault.getAbstractFileByPath(path);
-	if (existing instanceof TFile) return existing;
+	if (existing instanceof TFile) return { file: existing, created: false };
 
-	if (plugin?.instance?.createDailyNote) {
+	let pendingByPath = pendingDailyNoteCreations.get(app);
+	if (!pendingByPath) {
+		pendingByPath = new Map();
+		pendingDailyNoteCreations.set(app, pendingByPath);
+	}
+
+	const pendingCreation = pendingByPath.get(path);
+	if (pendingCreation) {
+		const result = await pendingCreation;
+		return result ? { ...result, created: false } : null;
+	}
+
+	const creation = (async (): Promise<EnsuredDailyNote | null> => {
 		try {
-			return await plugin.instance.createDailyNote(moment(date));
-		} catch {
-			/* fall through to manual creation */
+			const file = await createDailyNote(
+				moment(date) as unknown as Parameters<typeof createDailyNote>[0]
+			);
+			if (file) return { file, created: true };
+		} catch (error) {
+			console.warn(
+				"[Meetings Plus] Daily note: template-aware creation failed",
+				{ path, error }
+			);
 		}
-	}
 
-	if (folder) {
-		const folderPath = normalizePath(folder);
-		if (!app.vault.getAbstractFileByPath(folderPath)) {
-			try {
-				await app.vault.createFolder(folderPath);
-			} catch {
-				/* ignore */
-			}
+		const createdElsewhere = app.vault.getAbstractFileByPath(path);
+		if (createdElsewhere instanceof TFile) {
+			return { file: createdElsewhere, created: false };
 		}
-	}
+
+		console.warn(
+			"[Meetings Plus] Daily note: creation returned no file; no blank fallback was created",
+			{ path }
+		);
+		return null;
+	})();
+	pendingByPath.set(path, creation);
 
 	try {
-		return await app.vault.create(path, "");
-	} catch {
-		return null;
-	}
-}
-
-function getDailyNotesPlugin(app: App): InternalPluginShape | null {
-	const internal = (
-		app as unknown as {
-			internalPlugins?: {
-				plugins?: Record<string, InternalPluginShape>;
-			};
+		return await creation;
+	} finally {
+		if (pendingByPath.get(path) === creation) {
+			pendingByPath.delete(path);
 		}
-	).internalPlugins;
-	const plugin = internal?.plugins?.["daily-notes"];
-	return plugin?.enabled ? plugin : null;
+	}
 }
 
 function startOfDay(d: Date): Date {
