@@ -83,6 +83,10 @@ The existing **Outlook Meeting Notes** plugin requires Outlook and Obsidian to b
 
 > Meetings Plus also supports HTTP Basic auth: `https://user:pass@host/cal.ics`
 
+### Outlook: attendees
+
+Outlook's published calendar links currently don't include attendees or the organizer, even when the calendar is published with "Can view all details". Meetings Plus shows attendees whenever a feed includes them, so with an Outlook link the attendee fields in your notes stay empty, and "Hide declined events" has nothing to work with. This is a limitation of Outlook's feed, tracked in [#34](https://github.com/jabaho9523/obsidian-meetings-plus/issues/34).
+
 ## Usage
 
 - Click the **ribbon icon** to open the sidebar, or run **Meetings Plus: Open dashboard**
