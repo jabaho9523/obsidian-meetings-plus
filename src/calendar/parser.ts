@@ -176,14 +176,31 @@ export function parseICS(ics: string, opts: ParseOptions): Meeting[] {
 	// whose master we will expand anyway from an orphaned one we must keep.
 	const vevents = root.getAllSubcomponents("vevent");
 	const seriesUids = new Set<string>();
+	// Override components grouped by UID. Left to itself, ical.js relates
+	// every RECURRENCE-ID component in the feed to every series, matched only
+	// by occurrence time — so a moved occurrence of one series would replace
+	// another series' occurrence that shares the original slot.
+	const overridesByUid = new Map<string, typeof vevents>();
 	for (const vevent of vevents) {
-		if (!vevent.getFirstProperty("rrule")) continue;
 		const uid = vevent.getFirstPropertyValue<string>("uid");
-		if (uid) seriesUids.add(uid);
+		if (!uid) continue;
+		if (vevent.getFirstProperty("rrule")) seriesUids.add(uid);
+		if (vevent.getFirstProperty("recurrence-id")) {
+			const list = overridesByUid.get(uid) ?? [];
+			list.push(vevent);
+			overridesByUid.set(uid, list);
+		}
 	}
 
 	for (const vevent of vevents) {
-		const event = new ICAL.Event(vevent) as unknown as MinimalEvent;
+		const uid = vevent.getFirstPropertyValue<string>("uid") ?? "";
+		// An override can't have exceptions of its own.
+		const exceptions = vevent.getFirstProperty("recurrence-id")
+			? []
+			: overridesByUid.get(uid) ?? [];
+		const event = new ICAL.Event(vevent, {
+			exceptions,
+		}) as unknown as MinimalEvent;
 		const status = vevent.getFirstPropertyValue<string>("status");
 		if (status === "CANCELLED") continue;
 

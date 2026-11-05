@@ -62,7 +62,10 @@ declare module "ical.js" {
 	interface ICALStatic {
 		parse(input: string): unknown;
 		Component: new (jcal: unknown) => ICALComponent;
-		Event: new (component: ICALComponent) => ICALEvent;
+		Event: new (
+			component: ICALComponent,
+			options?: { exceptions?: ICALComponent[] }
+		) => ICALEvent;
 		Time: {
 			fromJSDate(date: Date, useUTC?: boolean): ICALTime;
 			fromString(str: string): ICALTime;
