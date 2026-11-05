@@ -646,7 +646,13 @@
 
 /* form helpers */
 .meetings-plus-input-wide {
-	width: 100%;
+	/*
+	 * Settings with a text field and an action button share a flex row. A
+	 * 100%-wide input competes with the button and can collapse to a sliver.
+	 */
+	flex: 1 1 18rem;
+	min-width: 12rem;
+	width: auto;
 }
 
 .meetings-plus-input-mono {

@@ -17,6 +17,7 @@ import { updateDailyNote } from "./notes/daily-note";
 import { PreMeetingScheduler } from "./notifications/pre-meeting";
 import { NoteIndex } from "./notes/duplicate-detector";
 import { hideSectionMarkers } from "./editor/hide-markers";
+import { safeExternalUrl } from "./util/external-url";
 
 export default class MeetingsPlusPlugin extends Plugin {
 	settings!: MeetingsPlusSettings;
@@ -34,6 +35,7 @@ export default class MeetingsPlusPlugin extends Plugin {
 			this.app,
 			() => this.settings,
 			async () => {
+				if (!this.settings.persistCalendarCache) return;
 				this.settings.cache = this.manager.cache.serialize();
 				await this.saveData(this.settings);
 			}
@@ -98,7 +100,7 @@ export default class MeetingsPlusPlugin extends Plugin {
 					new Notice(`${PLUGIN_NAME}: no link on next meeting`);
 					return;
 				}
-				window.open(next.meetingUrl, "_blank");
+				this.openExternalUrl(next.meetingUrl);
 			},
 		});
 
@@ -120,6 +122,18 @@ export default class MeetingsPlusPlugin extends Plugin {
 						);
 					}
 				})();
+			},
+		});
+
+		this.addCommand({
+			id: "clear-calendar-cache",
+			name: "Clear cached calendar data",
+			callback: () => {
+				this.manager.clearCache();
+				this.settings.cache = {};
+				void this.saveSettings().then(() => {
+					new Notice(`${PLUGIN_NAME}: cached calendar data cleared`);
+				});
 			},
 		});
 
@@ -152,10 +166,19 @@ export default class MeetingsPlusPlugin extends Plugin {
 		this.settings = {
 			...DEFAULT_SETTINGS,
 			...(loaded ?? {}),
-			cache: { ...(loaded?.cache ?? {}) },
+			persistCalendarCache: loaded?.persistCalendarCache === true,
+			cache:
+				loaded?.persistCalendarCache === true
+					? { ...(loaded?.cache ?? {}) }
+					: {},
 			calendars: (loaded?.calendars ?? []).map(migrateCalendar),
 			skippedToday: loaded?.skippedToday ?? [],
 		};
+		// Older versions always persisted a full calendar cache. Clear it unless
+		// the user has explicitly opted in under the current privacy policy.
+		if (loaded?.cache && loaded.persistCalendarCache !== true) {
+			await this.saveData(this.settings);
+		}
 	}
 
 	async saveSettings(): Promise<void> {
@@ -229,6 +252,15 @@ export default class MeetingsPlusPlugin extends Plugin {
 		} catch (e) {
 			console.warn("[Meetings Plus] daily note update failed", e);
 		}
+	}
+
+	openExternalUrl(rawUrl: string): void {
+		const url = safeExternalUrl(rawUrl);
+		if (!url) {
+			new Notice(`${PLUGIN_NAME}: meeting link must use HTTPS`);
+			return;
+		}
+		window.open(url, "_blank", "noopener,noreferrer");
 	}
 }
 

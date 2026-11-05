@@ -24,6 +24,8 @@ export interface MeetingsPlusSettings {
 	runTemplaterOnNewNotes: boolean;
 	openDashboardOnStart: boolean;
 	hideSectionMarkers: boolean;
+	/** Keep parsed calendar details across restarts. Disabled by default for privacy. */
+	persistCalendarCache: boolean;
 	calendars: CalendarConfig[];
 	/** Persisted cache. Keyed by calendarId. */
 	cache: Record<string, PersistedCacheEntry>;
@@ -83,26 +85,26 @@ export interface SerializedMeeting {
 
 export const DEFAULT_TEMPLATE = `---
 type: meeting
-calendar: {{calendar}}
+calendar: {{calendar_yaml}}
 date: {{date}}
 start: {{start:HH:mm}}
 end: {{end:HH:mm}}
-attendees: [{{attendees}}]
-organizer: {{organizer}}
-meeting_uid: {{uid}}
-meeting_dedup_key: {{dedup_key}}
-tags: {{tags}}
+attendees: {{attendees_yaml}}
+organizer: {{organizer_yaml}}
+meeting_uid: {{uid_yaml}}
+meeting_dedup_key: {{dedup_key_yaml}}
+tags: {{tags_yaml}}
 cssclasses: [meetings-plus-note]
 ---
 
-# {{title}}
+# {{title_markdown}}
 
 **When**: {{start:YYYY-MM-DD HH:mm}} – {{end:HH:mm}} ({{duration}} min)
-**Where**: {{location}}
-**Link**: {{meeting_url}}
+**Where**: {{location_markdown}}
+**Link**: {{meeting_url_markdown}}
 
 ## Attendees
-{{attendees_list}}
+{{attendees_list_markdown}}
 
 ## Agenda
 
@@ -155,6 +157,7 @@ export const DEFAULT_SETTINGS: MeetingsPlusSettings = {
 	runTemplaterOnNewNotes: false,
 	openDashboardOnStart: false,
 	hideSectionMarkers: true,
+	persistCalendarCache: false,
 	calendars: [],
 	cache: {},
 	skippedToday: [],

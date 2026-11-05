@@ -41,7 +41,7 @@ export class CalendarEditorModal extends Modal {
 		new Setting(contentEl)
 			.setName("Calendar feed")
 			.setDesc(
-				"Paste the public link to your calendar. Look for share, publish, or secret address in your calendar app."
+				"Paste a secure public or secret calendar link. Feed addresses are stored locally; addresses with a username or password are not supported."
 			)
 			.addText((t) => {
 				t.setPlaceholder("https://example.com/calendar.ics")

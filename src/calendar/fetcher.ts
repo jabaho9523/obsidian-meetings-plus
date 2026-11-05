@@ -1,4 +1,5 @@
 import { requestUrl } from "obsidian";
+import { validateCalendarFeedUrl } from "../util/external-url";
 
 export interface FetchResult {
 	body: string;
@@ -10,13 +11,14 @@ export interface FetchOptions {
 }
 
 const DEFAULT_TIMEOUT_MS = 10_000;
+const MAX_ICS_BYTES = 5 * 1024 * 1024;
 
 export async function fetchICS(
 	rawUrl: string,
 	opts: FetchOptions = {}
 ): Promise<FetchResult> {
 	const normalized = normalizeWebcal(rawUrl);
-	const { url, headers } = extractAuth(normalized);
+	const url = validateCalendarFeedUrl(normalized).toString();
 	const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
 	const result = await withTimeout(
@@ -25,7 +27,6 @@ export async function fetchICS(
 			method: "GET",
 			headers: {
 				Accept: "text/calendar, text/plain, */*",
-				...headers,
 			},
 			throw: false,
 		}),
@@ -36,6 +37,9 @@ export async function fetchICS(
 		throw new Error(`HTTP ${result.status}`);
 	}
 	const body = result.text ?? "";
+	if (new TextEncoder().encode(body).byteLength > MAX_ICS_BYTES) {
+		throw new Error("Calendar feed is larger than 5 MiB");
+	}
 	if (!body.includes("BEGIN:VCALENDAR")) {
 		throw new Error("Response is not a valid ICS feed");
 	}
@@ -56,40 +60,6 @@ function normalizeWebcal(rawUrl: string): string {
 		return trimmed.replace(/^webcal:\/\//i, "https://");
 	}
 	return trimmed;
-}
-
-interface AuthExtraction {
-	url: string;
-	headers: Record<string, string>;
-}
-
-function extractAuth(rawUrl: string): AuthExtraction {
-	try {
-		const parsed = new URL(rawUrl);
-		if (!parsed.username && !parsed.password) {
-			return { url: rawUrl, headers: {} };
-		}
-		const user = decodeURIComponent(parsed.username);
-		const pass = decodeURIComponent(parsed.password);
-		parsed.username = "";
-		parsed.password = "";
-		const token = base64(`${user}:${pass}`);
-		return {
-			url: parsed.toString(),
-			headers: { Authorization: `Basic ${token}` },
-		};
-	} catch {
-		return { url: rawUrl, headers: {} };
-	}
-}
-
-function base64(input: string): string {
-	// Encode UTF-8 → Latin-1 → base64. Obsidian (Electron) always provides btoa.
-	return window.btoa(
-		Array.from(new TextEncoder().encode(input))
-			.map((b) => String.fromCharCode(b))
-			.join("")
-	);
 }
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {

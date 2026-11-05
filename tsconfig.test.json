@@ -1,0 +1,16 @@
+{
+	"compilerOptions": {
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
+		"target": "ES2022",
+		"strict": true,
+		"noEmitOnError": true,
+		"outDir": ".test-dist",
+		"types": ["node"]
+	},
+	"include": [
+		"src/util/external-content.ts",
+		"src/util/external-url.ts",
+		"tests/**/*.ts"
+	]
+}

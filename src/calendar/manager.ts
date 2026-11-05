@@ -91,6 +91,12 @@ export class CalendarManager {
 		void this.persistCache();
 	}
 
+	clearCache(): void {
+		this.cache.clearAll();
+		this.status.clear();
+		void this.persistCache();
+	}
+
 	async refreshAll(): Promise<void> {
 		const settings = this.getSettings();
 		const enabled = settings.calendars.filter((c) => c.enabled && c.url);
