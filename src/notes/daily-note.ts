@@ -125,19 +125,15 @@ export async function ensureDailyNote(
 	date: Date = new Date(),
 	runTemplater = false
 ): Promise<EnsuredDailyNote | null> {
-	if (!appHasDailyNotesPluginLoaded()) {
-		console.warn(
-			"[Meetings Plus] Daily note: no Daily Notes or Periodic Notes plugin is enabled"
-		);
-		return null;
-	}
-
-	let settings: ReturnType<typeof getDailyNoteSettings>;
-	try {
-		settings = getDailyNoteSettings();
-	} catch (error) {
-		console.warn("[Meetings Plus] Daily note: could not read note settings", error);
-		return null;
+	const hasDailyNotesPlugin = appHasDailyNotesPluginLoaded();
+	let settings: ReturnType<typeof getDailyNoteSettings> | undefined;
+	if (hasDailyNotesPlugin) {
+		try {
+			settings = getDailyNoteSettings();
+		} catch (error) {
+			console.warn("[Meetings Plus] Daily note: could not read note settings", error);
+			return null;
+		}
 	}
 	const format = settings?.format || "YYYY-MM-DD";
 	const folder = (settings?.folder ?? "").trim();
@@ -163,9 +159,11 @@ export async function ensureDailyNote(
 
 	const creation = (async (): Promise<EnsuredDailyNote | null> => {
 		try {
-			const file = await createDailyNote(
-				moment(date) as unknown as Parameters<typeof createDailyNote>[0]
-			);
+			const file = hasDailyNotesPlugin
+				? await createDailyNote(
+						moment(date) as unknown as Parameters<typeof createDailyNote>[0]
+					)
+				: await app.vault.create(path, "");
 			if (file) {
 				if (runTemplater) {
 					try {
@@ -181,7 +179,9 @@ export async function ensureDailyNote(
 			}
 		} catch (error) {
 			console.warn(
-				"[Meetings Plus] Daily note: template-aware creation failed",
+				hasDailyNotesPlugin
+					? "[Meetings Plus] Daily note: template-aware creation failed"
+					: "[Meetings Plus] Daily note: plain-note creation failed",
 				{ path, error }
 			);
 		}
@@ -192,7 +192,9 @@ export async function ensureDailyNote(
 		}
 
 		console.warn(
-			"[Meetings Plus] Daily note: creation returned no file; no blank fallback was created",
+			hasDailyNotesPlugin
+				? "[Meetings Plus] Daily note: creation returned no file; no blank fallback was created"
+				: "[Meetings Plus] Daily note: plain-note creation returned no file",
 			{ path }
 		);
 		return null;
