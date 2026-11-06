@@ -169,6 +169,8 @@ Prepared on <% tp.date.now("YYYY-MM-DD") %>
 
 Meetings Plus fills in its `{{ }}` variables first; Templater then processes the note.
 
+When Meetings Plus creates a daily note, it uses the configured Daily notes or Periodic Notes template. With **Run Templater on new notes** enabled, that template is processed immediately after creation, before the schedule or meeting section is added. Refreshing the schedule in an existing daily note does not run Templater.
+
 > **Daily-note destinations:** Templater processes the *whole* daily note, not just the meeting section — any other Templater tags left in that note will run too. Templater runs only when the section is first created; clicking the meeting again just opens the note at its section.
 >
 > In Live Preview the `<!-- mp:section -->` markers around each daily-note section are hidden unless the cursor is on their line; turn off **Hide section markers in the editor** to always show them.

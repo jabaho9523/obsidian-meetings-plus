@@ -68,29 +68,19 @@ async function updateDailyNoteOnce(opts: UpdateOptions): Promise<void> {
 		.filter((m) => m.start >= today && m.start < tomorrow)
 		.sort((a, b) => a.start.getTime() - b.start.getTime());
 
-	const dailyNote = await ensureDailyNote(app);
+	const dailyNote = await ensureDailyNote(app, today, runTemplater);
 	if (!dailyNote) {
 		console.warn(
 			"[Meetings Plus] Daily note: could not find or create today's daily note"
 		);
 		return;
 	}
-	const { file, created } = dailyNote;
+	const { file } = dailyNote;
 
 	const original = await app.vault.read(file);
 	const next = replaceBlock(original, buildBlock(app, todays, timeFormat, noteIndex));
 	if (next !== original) {
 		await app.vault.modify(file, next);
-	}
-	if (created && runTemplater) {
-		try {
-			await runTemplaterIfAvailable(app, file);
-		} catch (e) {
-			console.warn(
-				"[Meetings Plus] Templater post-processing failed for the daily note",
-				e
-			);
-		}
 	}
 }
 
@@ -132,7 +122,8 @@ function replaceBlock(content: string, block: string): string {
 
 export async function ensureDailyNote(
 	app: App,
-	date: Date = new Date()
+	date: Date = new Date(),
+	runTemplater = false
 ): Promise<EnsuredDailyNote | null> {
 	if (!appHasDailyNotesPluginLoaded()) {
 		console.warn(
@@ -155,9 +146,6 @@ export async function ensureDailyNote(
 		folder ? `${folder}/${filename}.md` : `${filename}.md`
 	);
 
-	const existing = app.vault.getAbstractFileByPath(path);
-	if (existing instanceof TFile) return { file: existing, created: false };
-
 	let pendingByPath = pendingDailyNoteCreations.get(app);
 	if (!pendingByPath) {
 		pendingByPath = new Map();
@@ -170,12 +158,27 @@ export async function ensureDailyNote(
 		return result ? { ...result, created: false } : null;
 	}
 
+	const existing = app.vault.getAbstractFileByPath(path);
+	if (existing instanceof TFile) return { file: existing, created: false };
+
 	const creation = (async (): Promise<EnsuredDailyNote | null> => {
 		try {
 			const file = await createDailyNote(
 				moment(date) as unknown as Parameters<typeof createDailyNote>[0]
 			);
-			if (file) return { file, created: true };
+			if (file) {
+				if (runTemplater) {
+					try {
+						await runTemplaterIfAvailable(app, file);
+					} catch (error) {
+						console.warn(
+							"[Meetings Plus] Templater post-processing failed for the daily note",
+							error
+						);
+					}
+				}
+				return { file, created: true };
+			}
 		} catch (error) {
 			console.warn(
 				"[Meetings Plus] Daily note: template-aware creation failed",
