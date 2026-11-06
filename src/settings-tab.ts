@@ -85,7 +85,7 @@ export class MeetingsPlusSettingTab extends PluginSettingTab {
 		);
 		this.toggle(
 			"Run Templater on new notes",
-			"If Templater is installed, run it after creating a meeting note.",
+			"If Templater is installed, run it after creating meeting or daily notes.",
 			"runTemplaterOnNewNotes"
 		);
 		this.toggle(

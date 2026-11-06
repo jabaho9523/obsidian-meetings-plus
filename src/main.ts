@@ -225,6 +225,7 @@ export default class MeetingsPlusPlugin extends Plugin {
 				meetings: this.manager.getAllMeetings(),
 				timeFormat: this.settings.timeFormat,
 				noteIndex: this.noteIndex,
+				runTemplater: this.settings.runTemplaterOnNewNotes,
 			});
 		} catch (e) {
 			console.warn("[Meetings Plus] daily note update failed", e);
