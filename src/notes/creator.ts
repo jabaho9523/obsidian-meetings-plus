@@ -2,7 +2,7 @@ import { App, MarkdownView, Notice, TFile, normalizePath } from "obsidian";
 import { moment } from "../util/time";
 import { CalendarConfig, Meeting } from "../types";
 import { renderTemplate, sanitizeFilename } from "./template";
-import { NoteIndex } from "./duplicate-detector";
+import { NoteIndex, meetingFacts } from "./duplicate-detector";
 import { runTemplaterIfAvailable } from "../integrations/templater";
 import { ensureDailyNote } from "./daily-note";
 
@@ -43,6 +43,17 @@ export async function createOrOpenMeetingNote(
 		);
 		await openFile(app, legacyKeyed, opts.openInNewPane);
 		return legacyKeyed;
+	}
+
+	// A note another app (HyperCap) made for this meeting: same uid on the
+	// same local date. Works for recurring meetings too.
+	const facts = meetingFacts(meeting, calendar);
+	const sameUidAndDate = noteIndex.findNoteByUidAndDateVerified(
+		meeting.uid,
+		facts.date
+	);
+	if (sameUidAndDate) {
+		return adoptNote(opts, sameUidAndDate);
 	}
 
 	// Rescheduled-meeting fallback: same UID, different start date.
@@ -99,6 +110,13 @@ export async function createOrOpenMeetingNote(
 		return rescheduled;
 	}
 
+	// Another app's note under its own uid: same date and start, and our file
+	// name or the meeting title as heading. Only when exactly one note fits.
+	const foreign = noteIndex.findForeignNoteVerified(facts);
+	if (foreign) {
+		return adoptNote(opts, foreign);
+	}
+
 	switch (calendar.noteDestination) {
 		case "none":
 			new Notice(
@@ -112,6 +130,17 @@ export async function createOrOpenMeetingNote(
 		default:
 			return createStandaloneFile(opts);
 	}
+}
+
+async function adoptNote(opts: CreateOptions, file: TFile): Promise<TFile> {
+	await opts.app.fileManager.processFrontMatter(
+		file,
+		(fm: Record<string, unknown>) => {
+			fm["meeting_dedup_key"] = opts.meeting.dedupKey;
+		}
+	);
+	await openFile(opts.app, file, opts.openInNewPane);
+	return file;
 }
 
 async function createStandaloneFile(opts: CreateOptions): Promise<TFile | null> {
