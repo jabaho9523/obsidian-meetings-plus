@@ -177,6 +177,19 @@ If neither Daily notes nor Periodic Notes is enabled, Meetings Plus creates or r
 >
 > In Live Preview the `<!-- mp:section -->` markers around each daily-note section are hidden unless the cursor is on their line; turn off **Hide section markers in the editor** to always show them.
 
+## Using Meetings Plus with HyperCap
+
+Meetings Plus and HyperCap can share meeting notes, so one meeting has one note no matter which app made it. Point both at the same notes folder: the calendar's **Folder** in Meetings Plus and HyperCap's notes folder.
+
+Before creating a note, Meetings Plus first looks for its own note (by `meeting_dedup_key`). If there is none, it uses a note another app made when it finds:
+
+1. **Same uid and date** — a note whose `meeting_uid` and `date` match the meeting. This also works for recurring meetings.
+2. **Same name, date, and start** — otherwise, among notes that have a `meeting_uid`, one whose `date` and `start` (`HH:mm`) match the meeting and whose file name (ignoring a trailing ` (2)`) is the name Meetings Plus would give the note, or whose first `#` heading is the meeting title. Names and headings are compared ignoring case and extra spaces. This is used only when exactly one note matches; otherwise Meetings Plus creates a new note as before.
+
+When it finds such a note, Meetings Plus adds its own `meeting_dedup_key` to the note's properties, changes nothing else, and opens it. The note also shows as existing in the sidebar, in the daily-note meeting list, and for pre-meeting notifications.
+
+**Known limit:** renaming or moving a meeting after its note exists makes a new note the next time you open it.
+
 ## Settings
 
 Global options:
