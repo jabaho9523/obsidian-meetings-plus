@@ -1,9 +1,45 @@
-import { Plugin, TFile } from "obsidian";
+import { FrontMatterCache, Plugin, TFile } from "obsidian";
+import { CalendarConfig, Meeting } from "../types";
+import { moment } from "../util/time";
+import { renderTemplate, sanitizeFilename } from "./template";
+import { MeetingFacts, NoteFacts, pickForeignNote } from "./foreign-match";
+
+interface IndexedMeta {
+	dedupKey?: string;
+	uid?: string;
+	date: string;
+	start: string;
+}
+
+/** YAML may hand back numbers or booleans; compare scalars as text. */
+function toText(value: unknown): string {
+	return typeof value === "string" ||
+		typeof value === "number" ||
+		typeof value === "boolean"
+		? String(value)
+		: "";
+}
+
+export function meetingFacts(
+	meeting: Meeting,
+	calendar: CalendarConfig | undefined
+): MeetingFacts {
+	const name = calendar
+		? sanitizeFilename(renderTemplate(calendar.titlePattern, { meeting, calendar })) ||
+			"Untitled meeting"
+		: "";
+	return {
+		date: moment(meeting.start).format("YYYY-MM-DD"),
+		start: moment(meeting.start).format("HH:mm"),
+		name,
+		title: meeting.title,
+	};
+}
 
 export class NoteIndex {
 	private dedupKeyToFile = new Map<string, TFile>();
 	private uidToFiles = new Map<string, TFile[]>();
-	private fileToMeta = new Map<string, { dedupKey?: string; uid?: string }>();
+	private fileToMeta = new Map<string, IndexedMeta>();
 	private initialized = false;
 
 	constructor(private readonly plugin: Plugin) {
@@ -56,7 +92,10 @@ export class NoteIndex {
 			(typeof dedupKey === "string" && dedupKey) ||
 			(typeof uid === "string" && uid)
 		) {
-			const meta: { dedupKey?: string; uid?: string } = {};
+			const meta: IndexedMeta = {
+				date: toText(fm["date"]),
+				start: toText(fm["start"]),
+			};
 
 			if (typeof dedupKey === "string" && dedupKey) {
 				this.dedupKeyToFile.set(dedupKey, file);
@@ -127,21 +166,91 @@ export class NoteIndex {
 
 	/**
 	 * Index-only lookup that also accepts the UTC-dated key written by 0.5.6
-	 * and earlier, so those notes still register as existing.
+	 * and earlier, so those notes still register as existing, and notes
+	 * another app (HyperCap) made for the same meeting.
 	 */
-	findNoteForMeeting(meeting: {
-		dedupKey: string;
-		legacyDedupKey: string;
-	}): TFile | null {
+	findNoteForMeeting(
+		meeting: Meeting,
+		calendar: CalendarConfig | undefined
+	): TFile | null {
 		const hit = this.findExistingNote(meeting.dedupKey);
-		if (hit || meeting.legacyDedupKey === meeting.dedupKey) return hit;
-		return this.findExistingNote(meeting.legacyDedupKey);
+		if (hit) return hit;
+		const legacy =
+			meeting.legacyDedupKey === meeting.dedupKey
+				? null
+				: this.findExistingNote(meeting.legacyDedupKey);
+		if (legacy) return legacy;
+		const facts = meetingFacts(meeting, calendar);
+		return (
+			this.findNoteByUidAndDate(meeting.uid, facts.date) ??
+			this.findForeignNote(facts)
+		);
 	}
 
 	findNoteByUid(uid: string): TFile | null {
 		this.initialize();
 		const matches = this.uidToFiles.get(uid) ?? [];
 		return matches.length === 1 ? (matches[0] ?? null) : null;
+	}
+
+	/** A note with this uid on this local date, recurring or not. */
+	findNoteByUidAndDate(uid: string, date: string): TFile | null {
+		this.initialize();
+		const matches = this.uidToFiles.get(uid) ?? [];
+		return (
+			matches.find((f) => this.fileToMeta.get(f.path)?.date === date) ??
+			null
+		);
+	}
+
+	/**
+	 * The single note with a meeting_uid, the meeting's date and start, and
+	 * the file name Meetings Plus would give it or its title as first heading.
+	 */
+	findForeignNote(meeting: MeetingFacts): TFile | null {
+		this.initialize();
+		const files: TFile[] = [];
+		for (const list of this.uidToFiles.values()) {
+			for (const file of list) files.push(file);
+		}
+		return pickForeignNote(this.foreignCandidates(files, meeting), meeting);
+	}
+
+	private foreignCandidates(
+		files: TFile[],
+		meeting: MeetingFacts
+	): { file: TFile; facts: NoteFacts }[] {
+		const notes: { file: TFile; facts: NoteFacts }[] = [];
+		for (const file of files) {
+			const meta = this.fileToMeta.get(file.path);
+			if (!meta?.uid) continue;
+			if (meta.date !== meeting.date || meta.start !== meeting.start) continue;
+			const heading =
+				this.plugin.app.metadataCache
+					.getFileCache(file)
+					?.headings?.find((h) => h.level === 1)?.heading ?? "";
+			notes.push({
+				file,
+				facts: {
+					uid: meta.uid,
+					date: meta.date,
+					start: meta.start,
+					name: file.basename,
+					heading,
+				},
+			});
+		}
+		return notes;
+	}
+
+	private scanFiles(test: (fm: FrontMatterCache) => boolean): TFile[] {
+		const matches: TFile[] = [];
+		for (const file of this.plugin.app.vault.getMarkdownFiles()) {
+			const fm =
+				this.plugin.app.metadataCache.getFileCache(file)?.frontmatter;
+			if (fm && test(fm)) matches.push(file);
+		}
+		return matches;
 	}
 
 	private scanFrontmatter(key: string, value: string): TFile[] {
@@ -180,5 +289,29 @@ export class NoteIndex {
 		// More than one match means a recurring event with per-occurrence notes,
 		// where we can't safely identify which occurrence was rescheduled.
 		return matches.length === 1 ? (matches[0] ?? null) : null;
+	}
+
+	findNoteByUidAndDateVerified(uid: string, date: string): TFile | null {
+		const hit = this.findNoteByUidAndDate(uid, date);
+		if (hit) return hit;
+		const matches = this.scanFiles(
+			(fm) => fm["meeting_uid"] === uid && toText(fm["date"]) === date
+		);
+		for (const file of matches) this.reindex(file);
+		return matches[0] ?? null;
+	}
+
+	findForeignNoteVerified(meeting: MeetingFacts): TFile | null {
+		const hit = this.findForeignNote(meeting);
+		if (hit) return hit;
+		const matches = this.scanFiles(
+			(fm) =>
+				typeof fm["meeting_uid"] === "string" &&
+				fm["meeting_uid"] !== "" &&
+				toText(fm["date"]) === meeting.date &&
+				toText(fm["start"]) === meeting.start
+		);
+		for (const file of matches) this.reindex(file);
+		return pickForeignNote(this.foreignCandidates(matches, meeting), meeting);
 	}
 }
