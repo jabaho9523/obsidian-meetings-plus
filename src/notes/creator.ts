@@ -2,7 +2,8 @@ import { App, MarkdownView, Notice, TFile, normalizePath } from "obsidian";
 import { moment } from "../util/time";
 import { CalendarConfig, Meeting } from "../types";
 import { renderTemplate, sanitizeFilename } from "./template";
-import { NoteIndex, meetingFacts } from "./duplicate-detector";
+import { NoteIndex, meetingFacts, notesFolder } from "./duplicate-detector";
+import { adoptFrontMatter } from "./foreign-match";
 import { runTemplaterIfAvailable } from "../integrations/templater";
 import { ensureDailyNote } from "./daily-note";
 
@@ -13,12 +14,14 @@ export interface CreateOptions {
 	runTemplater: boolean;
 	openInNewPane: boolean;
 	noteIndex: NoteIndex;
+	/** Every configured calendar's id, to tell our own notes from others' */
+	calendarIds: string[];
 }
 
 export async function createOrOpenMeetingNote(
 	opts: CreateOptions
 ): Promise<TFile | null> {
-	const { app, meeting, calendar, noteIndex } = opts;
+	const { app, meeting, calendar, noteIndex, calendarIds } = opts;
 
 	// Existing standalone note → just open it, regardless of destination.
 	const existing = noteIndex.findExistingNoteVerified(meeting.dedupKey);
@@ -35,33 +38,46 @@ export async function createOrOpenMeetingNote(
 			? null
 			: noteIndex.findExistingNoteVerified(meeting.legacyDedupKey);
 	if (legacyKeyed) {
-		await app.fileManager.processFrontMatter(
-			legacyKeyed,
-			(fm: Record<string, unknown>) => {
-				fm["meeting_dedup_key"] = meeting.dedupKey;
-			}
-		);
+		if (noteIndex.isOwn(legacyKeyed, calendarIds)) {
+			await app.fileManager.processFrontMatter(
+				legacyKeyed,
+				(fm: Record<string, unknown>) => {
+					fm["meeting_dedup_key"] = meeting.dedupKey;
+				}
+			);
+		}
 		await openFile(app, legacyKeyed, opts.openInNewPane);
 		return legacyKeyed;
 	}
 
-	// A note another app (HyperCap) made for this meeting: same uid on the
-	// same local date. Works for recurring meetings too.
+	// HyperCap's note contract: same uid and date (recurring too), else the
+	// single note in the folder with the same date, start, and our file name
+	// or the title as heading. Our own notes from another calendar are only
+	// opened; another app's note gets our key and is never rewritten after.
 	const facts = meetingFacts(meeting, calendar);
-	const sameUidAndDate = noteIndex.findNoteByUidAndDateVerified(
-		meeting.uid,
-		facts.date
-	);
-	if (sameUidAndDate) {
-		return adoptNote(opts, sameUidAndDate);
+	const folder = notesFolder(calendar);
+	const matched =
+		(await noteIndex.findNoteByUidAndDateVerified(
+			meeting.uid,
+			facts.date,
+			folder
+		)) ?? (await noteIndex.findForeignNoteVerified(facts, folder));
+	if (matched) {
+		if (!noteIndex.isOwn(matched, calendarIds)) {
+			await app.vault.process(matched, (text) =>
+				adoptFrontMatter(text, meeting.dedupKey)
+			);
+		}
+		await openFile(app, matched, opts.openInNewPane);
+		return matched;
 	}
 
-	// Rescheduled-meeting fallback: same UID, different start date.
-	// Recurring occurrences share one UID, so a single existing note would
-	// wrongly match from the second occurrence on — skip them entirely.
+	// Rescheduled-meeting fallback: same UID, different start date, own notes
+	// only. Recurring occurrences share one UID, so a single existing note
+	// would wrongly match from the second occurrence on — skip them entirely.
 	const rescheduled = meeting.recurring
 		? null
-		: noteIndex.findNoteByUidVerified(meeting.uid);
+		: noteIndex.findNoteByUidVerified(meeting.uid, calendarIds);
 	if (rescheduled) {
 		// 1. Update frontmatter
 		await app.fileManager.processFrontMatter(
@@ -116,13 +132,6 @@ export async function createOrOpenMeetingNote(
 		return rescheduled;
 	}
 
-	// Another app's note under its own uid: same date and start, and our file
-	// name or the meeting title as heading. Only when exactly one note fits.
-	const foreign = noteIndex.findForeignNoteVerified(facts);
-	if (foreign) {
-		return adoptNote(opts, foreign);
-	}
-
 	switch (calendar.noteDestination) {
 		case "none":
 			new Notice(
@@ -136,17 +145,6 @@ export async function createOrOpenMeetingNote(
 		default:
 			return createStandaloneFile(opts);
 	}
-}
-
-async function adoptNote(opts: CreateOptions, file: TFile): Promise<TFile> {
-	await opts.app.fileManager.processFrontMatter(
-		file,
-		(fm: Record<string, unknown>) => {
-			fm["meeting_dedup_key"] = opts.meeting.dedupKey;
-		}
-	);
-	await openFile(opts.app, file, opts.openInNewPane);
-	return file;
 }
 
 async function createStandaloneFile(opts: CreateOptions): Promise<TFile | null> {

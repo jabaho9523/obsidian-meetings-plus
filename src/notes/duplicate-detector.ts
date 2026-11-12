@@ -1,45 +1,60 @@
-import { FrontMatterCache, Plugin, TFile } from "obsidian";
+import {
+	FileSystemAdapter,
+	FrontMatterCache,
+	Platform,
+	Plugin,
+	TFile,
+	normalizePath,
+} from "obsidian";
 import { CalendarConfig, Meeting } from "../types";
 import { moment } from "../util/time";
 import { renderTemplate, sanitizeFilename } from "./template";
-import { MeetingFacts, NoteFacts, pickForeignNote } from "./foreign-match";
+import {
+	MeetingFacts,
+	NoteFacts,
+	dateKey,
+	firstHeading,
+	inScope,
+	isOwnNote,
+	pickSingle,
+	sameNameOrHeading,
+	sameSlot,
+	startKey,
+} from "./foreign-match";
 
 interface IndexedMeta {
 	dedupKey?: string;
 	uid?: string;
 	date: string;
-	start: string;
-}
-
-/** YAML may hand back numbers or booleans; compare scalars as text. */
-function toText(value: unknown): string {
-	return typeof value === "string" ||
-		typeof value === "number" ||
-		typeof value === "boolean"
-		? String(value)
-		: "";
+	start: string | null;
 }
 
 export function meetingFacts(
 	meeting: Meeting,
-	calendar: CalendarConfig | undefined
+	calendar: CalendarConfig
 ): MeetingFacts {
-	const name = calendar
-		? sanitizeFilename(renderTemplate(calendar.titlePattern, { meeting, calendar })) ||
-			"Untitled meeting"
-		: "";
 	return {
 		date: moment(meeting.start).format("YYYY-MM-DD"),
 		start: moment(meeting.start).format("HH:mm"),
-		name,
+		name: sanitizeFilename(
+			renderTemplate(calendar.titlePattern, { meeting, calendar })
+		),
 		title: meeting.title,
 	};
+}
+
+/** The calendar's notes folder ("the chosen folder"), "" for the vault root. */
+export function notesFolder(calendar: CalendarConfig): string {
+	const folder = (calendar.folder || "").trim();
+	return folder ? normalizePath(folder) : "";
 }
 
 export class NoteIndex {
 	private dedupKeyToFile = new Map<string, TFile>();
 	private uidToFiles = new Map<string, TFile[]>();
 	private fileToMeta = new Map<string, IndexedMeta>();
+	/** First "# " line per note, read from the file text on demand. */
+	private headings = new Map<string, string>();
 	private initialized = false;
 
 	constructor(private readonly plugin: Plugin) {
@@ -74,6 +89,7 @@ export class NoteIndex {
 		this.dedupKeyToFile.clear();
 		this.uidToFiles.clear();
 		this.fileToMeta.clear();
+		this.headings.clear();
 		const files = this.plugin.app.vault.getMarkdownFiles();
 		for (const file of files) {
 			this.indexFile(file);
@@ -93,8 +109,8 @@ export class NoteIndex {
 			(typeof uid === "string" && uid)
 		) {
 			const meta: IndexedMeta = {
-				date: toText(fm["date"]),
-				start: toText(fm["start"]),
+				date: dateKey(fm["date"]),
+				start: startKey(fm["start"]),
 			};
 
 			if (typeof dedupKey === "string" && dedupKey) {
@@ -119,6 +135,7 @@ export class NoteIndex {
 	}
 
 	private deindexFileByPath(path: string) {
+		this.headings.delete(path);
 		const meta = this.fileToMeta.get(path);
 		if (!meta) return;
 
@@ -179,78 +196,80 @@ export class NoteIndex {
 			meeting.legacyDedupKey === meeting.dedupKey
 				? null
 				: this.findExistingNote(meeting.legacyDedupKey);
-		if (legacy) return legacy;
+		if (legacy || !calendar) return legacy;
 		const facts = meetingFacts(meeting, calendar);
+		const folder = notesFolder(calendar);
 		return (
-			this.findNoteByUidAndDate(meeting.uid, facts.date) ??
-			this.findForeignNote(facts)
+			this.findNoteByUidAndDate(meeting.uid, facts.date, folder) ??
+			this.findForeignNote(facts, folder)
 		);
 	}
 
-	findNoteByUid(uid: string): TFile | null {
-		this.initialize();
-		const matches = this.uidToFiles.get(uid) ?? [];
-		return matches.length === 1 ? (matches[0] ?? null) : null;
-	}
-
-	/** A note with this uid on this local date, recurring or not. */
-	findNoteByUidAndDate(uid: string, date: string): TFile | null {
+	/** Contract step 1, index only: same uid and date, recurring or not. */
+	findNoteByUidAndDate(uid: string, date: string, folder: string): TFile | null {
 		this.initialize();
 		const matches = this.uidToFiles.get(uid) ?? [];
 		return (
-			matches.find((f) => this.fileToMeta.get(f.path)?.date === date) ??
-			null
+			matches.find(
+				(f) =>
+					inScope(f.path, folder) &&
+					this.fileToMeta.get(f.path)?.date === date
+			) ?? null
 		);
 	}
 
 	/**
-	 * The single note with a meeting_uid, the meeting's date and start, and
-	 * the file name Meetings Plus would give it or its title as first heading.
+	 * Contract steps 2 and 3, index only. A heading not read yet counts as
+	 * none until its file text is in; a stale answer here is only cosmetic.
 	 */
-	findForeignNote(meeting: MeetingFacts): TFile | null {
+	findForeignNote(meeting: MeetingFacts, folder: string): TFile | null {
 		this.initialize();
-		const files: TFile[] = [];
+		const matches: TFile[] = [];
 		for (const list of this.uidToFiles.values()) {
-			for (const file of list) files.push(file);
-		}
-		return pickForeignNote(this.foreignCandidates(files, meeting), meeting);
-	}
-
-	private foreignCandidates(
-		files: TFile[],
-		meeting: MeetingFacts
-	): { file: TFile; facts: NoteFacts }[] {
-		const notes: { file: TFile; facts: NoteFacts }[] = [];
-		for (const file of files) {
-			const meta = this.fileToMeta.get(file.path);
-			if (!meta?.uid) continue;
-			if (meta.date !== meeting.date || meta.start !== meeting.start) continue;
-			const heading =
-				this.plugin.app.metadataCache
-					.getFileCache(file)
-					?.headings?.find((h) => h.level === 1)?.heading ?? "";
-			notes.push({
-				file,
-				facts: {
+			for (const file of list) {
+				const meta = this.fileToMeta.get(file.path);
+				if (!meta?.uid || !inScope(file.path, folder)) continue;
+				const facts: NoteFacts = {
 					uid: meta.uid,
 					date: meta.date,
 					start: meta.start,
-					name: file.basename,
-					heading,
-				},
-			});
+					fileName: file.name,
+					heading: "",
+				};
+				if (!sameSlot(facts, meeting)) continue;
+				facts.heading = this.cachedHeading(file);
+				if (sameNameOrHeading(facts, meeting)) matches.push(file);
+			}
 		}
-		return notes;
+		return pickSingle(matches);
 	}
 
-	private scanFiles(test: (fm: FrontMatterCache) => boolean): TFile[] {
-		const matches: TFile[] = [];
-		for (const file of this.plugin.app.vault.getMarkdownFiles()) {
-			const fm =
-				this.plugin.app.metadataCache.getFileCache(file)?.frontmatter;
-			if (fm && test(fm)) matches.push(file);
-		}
-		return matches;
+	private cachedHeading(file: TFile): string {
+		const known = this.headings.get(file.path);
+		if (known !== undefined) return known;
+		this.plugin.app.vault.cachedRead(file).then(
+			(text) => {
+				this.headings.set(file.path, firstHeading(text));
+			},
+			() => undefined
+		);
+		return "";
+	}
+
+	isOwn(file: TFile, calendarIds: string[]): boolean {
+		return isOwnNote(
+			this.plugin.app.metadataCache.getFileCache(file)?.frontmatter,
+			calendarIds
+		);
+	}
+
+	/** Our own note with this uid, when exactly one exists. */
+	findNoteByUid(uid: string, calendarIds: string[]): TFile | null {
+		this.initialize();
+		const matches = (this.uidToFiles.get(uid) ?? []).filter((f) =>
+			this.isOwn(f, calendarIds)
+		);
+		return pickSingle(matches);
 	}
 
 	private scanFrontmatter(key: string, value: string): TFile[] {
@@ -259,6 +278,20 @@ export class NoteIndex {
 			const fm =
 				this.plugin.app.metadataCache.getFileCache(file)?.frontmatter;
 			if (fm?.[key] === value) matches.push(file);
+		}
+		return matches;
+	}
+
+	private scanFolder(
+		folder: string,
+		test: (fm: FrontMatterCache) => boolean
+	): TFile[] {
+		const matches: TFile[] = [];
+		for (const file of this.plugin.app.vault.getMarkdownFiles()) {
+			if (!inScope(file.path, folder)) continue;
+			const fm =
+				this.plugin.app.metadataCache.getFileCache(file)?.frontmatter;
+			if (fm && test(fm)) matches.push(file);
 		}
 		return matches;
 	}
@@ -281,37 +314,88 @@ export class NoteIndex {
 		return matches[0] ?? null;
 	}
 
-	findNoteByUidVerified(uid: string): TFile | null {
-		const hit = this.findNoteByUid(uid);
+	findNoteByUidVerified(uid: string, calendarIds: string[]): TFile | null {
+		const hit = this.findNoteByUid(uid, calendarIds);
 		if (hit) return hit;
-		const matches = this.scanFrontmatter("meeting_uid", uid);
+		const matches = this.scanFrontmatter("meeting_uid", uid).filter((f) =>
+			this.isOwn(f, calendarIds)
+		);
 		for (const file of matches) this.reindex(file);
 		// More than one match means a recurring event with per-occurrence notes,
 		// where we can't safely identify which occurrence was rescheduled.
-		return matches.length === 1 ? (matches[0] ?? null) : null;
+		return pickSingle(matches);
 	}
 
-	findNoteByUidAndDateVerified(uid: string, date: string): TFile | null {
-		const hit = this.findNoteByUidAndDate(uid, date);
-		if (hit) return hit;
-		const matches = this.scanFiles(
-			(fm) => fm["meeting_uid"] === uid && toText(fm["date"]) === date
+	/** Contract step 1 for the creation path: scans the folder, skips links. */
+	async findNoteByUidAndDateVerified(
+		uid: string,
+		date: string,
+		folder: string
+	): Promise<TFile | null> {
+		const matches = this.scanFolder(
+			folder,
+			(fm) => fm["meeting_uid"] === uid && dateKey(fm["date"]) === date
 		);
-		for (const file of matches) this.reindex(file);
-		return matches[0] ?? null;
+		for (const file of matches) {
+			this.reindex(file);
+			if (!(await this.isLinked(file, folder))) return file;
+		}
+		return null;
 	}
 
-	findForeignNoteVerified(meeting: MeetingFacts): TFile | null {
-		const hit = this.findForeignNote(meeting);
-		if (hit) return hit;
-		const matches = this.scanFiles(
+	/** Contract steps 2 and 3 for the creation path, headings from the text. */
+	async findForeignNoteVerified(
+		meeting: MeetingFacts,
+		folder: string
+	): Promise<TFile | null> {
+		const slot = this.scanFolder(
+			folder,
 			(fm) =>
 				typeof fm["meeting_uid"] === "string" &&
 				fm["meeting_uid"] !== "" &&
-				toText(fm["date"]) === meeting.date &&
-				toText(fm["start"]) === meeting.start
+				dateKey(fm["date"]) === meeting.date &&
+				startKey(fm["start"]) === meeting.start
 		);
-		for (const file of matches) this.reindex(file);
-		return pickForeignNote(this.foreignCandidates(matches, meeting), meeting);
+		const matches: TFile[] = [];
+		for (const file of slot) {
+			this.reindex(file);
+			if (await this.isLinked(file, folder)) continue;
+			const heading = firstHeading(await this.plugin.app.vault.read(file));
+			this.headings.set(file.path, heading);
+			if (sameNameOrHeading({ fileName: file.name, heading }, meeting)) {
+				matches.push(file);
+			}
+		}
+		return pickSingle(matches);
+	}
+
+	/**
+	 * Whether a folder below `folder` on the way to the note, or the note
+	 * itself, is a symlink, or the note has more than one hard link. The vault
+	 * API reports neither; this checks on desktop only, mobile can't.
+	 */
+	private async isLinked(file: TFile, folder: string): Promise<boolean> {
+		const adapter = this.plugin.app.vault.adapter;
+		if (
+			Platform.isDesktop &&
+			Platform.isDesktopApp &&
+			adapter instanceof FileSystemAdapter
+		) {
+			const { lstat } = await import("fs/promises");
+			const root = folder.replace(/^\/+|\/+$/g, "");
+			const parts = (root ? file.path.slice(root.length + 1) : file.path).split("/");
+			let path = root;
+			try {
+				for (let i = 0; i < parts.length; i++) {
+					path = path ? `${path}/${parts[i] ?? ""}` : (parts[i] ?? "");
+					const stat = await lstat(adapter.getFullPath(path));
+					if (stat.isSymbolicLink()) return true;
+					if (i === parts.length - 1 && stat.nlink > 1) return true;
+				}
+			} catch {
+				return true;
+			}
+		}
+		return false;
 	}
 }
