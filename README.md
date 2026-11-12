@@ -179,14 +179,19 @@ If neither Daily notes nor Periodic Notes is enabled, Meetings Plus creates or r
 
 ## Using Meetings Plus with HyperCap
 
-Meetings Plus and HyperCap can share meeting notes, so one meeting has one note no matter which app made it. Point both at the same notes folder: the calendar's **Folder** in Meetings Plus and HyperCap's notes folder.
+Meetings Plus and HyperCap share meeting notes, so one meeting has one note no matter which app made it. Set the calendar's **Folder** in Meetings Plus to HyperCap's notes folder, or to a folder up to 4 levels above it.
 
-Before creating a note, Meetings Plus first looks for its own note (by `meeting_dedup_key`). If there is none, it uses a note another app made when it finds:
+Before creating a note, Meetings Plus looks for its own note (by `meeting_dedup_key`, anywhere in the vault). If there is none, it looks in the calendar's folder and its subfolders, at most 4 levels deep, skipping dot-folders such as `.trash`:
 
-1. **Same uid and date** — a note whose `meeting_uid` and `date` match the meeting. This also works for recurring meetings.
-2. **Same name, date, and start** — otherwise, among notes that have a `meeting_uid`, one whose `date` and `start` (`HH:mm`) match the meeting and whose file name (ignoring a trailing ` (2)`) is the name Meetings Plus would give the note, or whose first `#` heading is the meeting title. Names and headings are compared ignoring case and extra spaces. This is used only when exactly one note matches; otherwise Meetings Plus creates a new note as before.
+1. **Same uid and date:** a note whose `meeting_uid` and `date` match the meeting. This also works for recurring meetings.
+2. **Same date, start, and name:** otherwise, among notes with a `meeting_uid`, those whose `date` and `start` match the meeting and whose file name (without a trailing ` (2)` to ` (999)`) is the name Meetings Plus would give the note, or whose first `# ` line after the front matter is the meeting title. Names and titles are compared ignoring case, extra spaces, and Unicode composition; `start` may be written `9:05`, `09:05`, or quoted.
+3. Step 2 is used only when exactly one note matches; otherwise Meetings Plus creates a new note.
 
-When it finds such a note, Meetings Plus adds its own `meeting_dedup_key` to the note's properties, changes nothing else, and opens it. The note also shows as existing in the sidebar, in the daily-note meeting list, and for pre-meeting notifications.
+A note found this way opens where it is. If it is another app's note, Meetings Plus adds two properties, `meeting_dedup_key` and `meetings_plus_adopted: true`, and leaves every other line of the file as it was. Adopted notes are never renamed, moved, or rewritten afterwards, including when the meeting is rescheduled. A note Meetings Plus made for another of your calendars is opened unchanged. Found notes also show as existing in the sidebar, in the daily-note meeting list, and for pre-meeting notifications.
+
+New notes follow HyperCap's file-name rule: characters not allowed in file names become spaces, leading dots and spaces are removed, names are capped at 200 bytes, and copies are numbered ` (2)` to ` (9)`. If all of those exist, Meetings Plus shows a notice and creates nothing.
+
+Symlinked folders, symlinked notes, and notes with more than one hard link are skipped on desktop only. Mobile has no way to check for them, so they are not skipped there.
 
 **Known limit:** renaming or moving a meeting after its note exists makes a new note the next time you open it.
 
