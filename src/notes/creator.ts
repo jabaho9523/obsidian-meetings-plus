@@ -95,12 +95,18 @@ export async function createOrOpenMeetingNote(
 			meeting,
 			calendar,
 		});
-		const newBaseName = sanitizeFilename(newTitle) || "Untitled meeting";
-		const folder = rescheduled.parent?.path ?? "";
-		let newPath = joinPath(folder, `${newBaseName}.md`);
+		const newBaseName = sanitizeFilename(newTitle);
+		const newPath = joinPath(
+			rescheduled.parent?.path ?? "",
+			`${newBaseName}.md`
+		);
 		if (newPath !== rescheduled.path) {
-			newPath = await uniquePath(app, newPath);
-			await app.fileManager.renameFile(rescheduled, newPath);
+			const unique = await uniquePath(app, newPath);
+			if (unique) {
+				await app.fileManager.renameFile(rescheduled, unique);
+			} else {
+				new Notice(copiesTakenMessage(newBaseName));
+			}
 		}
 
 		new Notice(
@@ -152,8 +158,12 @@ async function createStandaloneFile(opts: CreateOptions): Promise<TFile | null> 
 		meeting,
 		calendar,
 	});
-	const baseName = sanitizeFilename(titleBody) || "Untitled meeting";
+	const baseName = sanitizeFilename(titleBody);
 	const path = await uniquePath(app, joinPath(folder, `${baseName}.md`));
+	if (!path) {
+		new Notice(`${copiesTakenMessage(baseName)}; no note created`);
+		return null;
+	}
 
 	const body = renderTemplate(calendar.template, { meeting, calendar });
 	const file = await app.vault.create(path, body);
@@ -299,18 +309,21 @@ function joinPath(folder: string, name: string): string {
 	return normalizePath(`${folder}/${name}`);
 }
 
-async function uniquePath(app: App, path: string): Promise<string> {
+/** Copies " (2)" to " (9)", as HyperCap names them; null when all are taken. */
+async function uniquePath(app: App, path: string): Promise<string | null> {
 	if (!app.vault.getAbstractFileByPath(path)) return path;
 	const dot = path.lastIndexOf(".");
 	const stem = dot > 0 ? path.slice(0, dot) : path;
 	const ext = dot > 0 ? path.slice(dot) : "";
-	let i = 2;
-	while (i < 1000) {
+	for (let i = 2; i <= 9; i++) {
 		const candidate = `${stem} (${i})${ext}`;
 		if (!app.vault.getAbstractFileByPath(candidate)) return candidate;
-		i++;
 	}
-	return path;
+	return null;
+}
+
+function copiesTakenMessage(baseName: string): string {
+	return `Meetings Plus: "${baseName}" and its copies (2) to (9) already exist`;
 }
 
 async function openFile(
