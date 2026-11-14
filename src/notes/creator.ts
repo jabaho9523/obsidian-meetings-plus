@@ -53,7 +53,8 @@ export async function createOrOpenMeetingNote(
 	// HyperCap's note contract: same uid and date (recurring too), else the
 	// single note in the folder with the same date, start, and our file name
 	// or the title as heading. Our own notes from another calendar are only
-	// opened; another app's note gets our key and is never rewritten after.
+	// opened; another app's note gets our key once and is never rewritten
+	// after, not even by another of our calendars.
 	const facts = meetingFacts(meeting, calendar);
 	const folder = notesFolder(calendar);
 	const matched =
@@ -63,7 +64,10 @@ export async function createOrOpenMeetingNote(
 			folder
 		)) ?? (await noteIndex.findForeignNoteVerified(facts, folder));
 	if (matched) {
-		if (!noteIndex.isOwn(matched, calendarIds)) {
+		if (
+			!noteIndex.isOwn(matched, calendarIds) &&
+			!noteIndex.isAdopted(matched)
+		) {
 			await app.vault.process(matched, (text) =>
 				adoptFrontMatter(text, meeting.dedupKey)
 			);

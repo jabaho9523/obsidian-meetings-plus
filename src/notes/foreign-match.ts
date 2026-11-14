@@ -92,6 +92,11 @@ export function inScope(path: string, folder: string): boolean {
 	return dirs.length <= 4 && !dirs.some((d) => d.startsWith("."));
 }
 
+/** Another app's note that one of our calendars already adopted. */
+export function isAdoptedNote(fm: Record<string, unknown> | undefined): boolean {
+	return fm?.["meetings_plus_adopted"] === true;
+}
+
 /**
  * Meetings Plus's own note: its dedup key names one of our calendars and it
  * was not adopted from another app. Only own notes may be rewritten,
@@ -101,7 +106,7 @@ export function isOwnNote(
 	fm: Record<string, unknown> | undefined,
 	calendarIds: string[]
 ): boolean {
-	if (!fm || fm["meetings_plus_adopted"] === true) return false;
+	if (!fm || isAdoptedNote(fm)) return false;
 	const key = fm["meeting_dedup_key"];
 	return (
 		typeof key === "string" && calendarIds.some((id) => key.startsWith(`${id}::`))

@@ -15,6 +15,7 @@ import {
 	dateKey,
 	firstHeading,
 	inScope,
+	isAdoptedNote,
 	isOwnNote,
 	pickSingle,
 	sameNameOrHeading,
@@ -263,6 +264,12 @@ export class NoteIndex {
 		return isOwnNote(
 			this.plugin.app.metadataCache.getFileCache(file)?.frontmatter,
 			calendarIds
+		);
+	}
+
+	isAdopted(file: TFile): boolean {
+		return isAdoptedNote(
+			this.plugin.app.metadataCache.getFileCache(file)?.frontmatter
 		);
 	}
 
