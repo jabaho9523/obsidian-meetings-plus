@@ -2,7 +2,8 @@ import { App, MarkdownView, Notice, TFile, normalizePath } from "obsidian";
 import { moment } from "../util/time";
 import { CalendarConfig, Meeting } from "../types";
 import { renderTemplate, sanitizeFilename } from "./template";
-import { NoteIndex } from "./duplicate-detector";
+import { NoteIndex, meetingFacts, notesFolder } from "./duplicate-detector";
+import { adoptFrontMatter } from "./foreign-match";
 import { runTemplaterIfAvailable } from "../integrations/templater";
 import { ensureDailyNote } from "./daily-note";
 
@@ -13,12 +14,14 @@ export interface CreateOptions {
 	runTemplater: boolean;
 	openInNewPane: boolean;
 	noteIndex: NoteIndex;
+	/** Every configured calendar's id, to tell our own notes from others' */
+	calendarIds: string[];
 }
 
 export async function createOrOpenMeetingNote(
 	opts: CreateOptions
 ): Promise<TFile | null> {
-	const { app, meeting, calendar, noteIndex } = opts;
+	const { app, meeting, calendar, noteIndex, calendarIds } = opts;
 
 	// Existing standalone note → just open it, regardless of destination.
 	const existing = noteIndex.findExistingNoteVerified(meeting.dedupKey);
@@ -35,22 +38,50 @@ export async function createOrOpenMeetingNote(
 			? null
 			: noteIndex.findExistingNoteVerified(meeting.legacyDedupKey);
 	if (legacyKeyed) {
-		await app.fileManager.processFrontMatter(
-			legacyKeyed,
-			(fm: Record<string, unknown>) => {
-				fm["meeting_dedup_key"] = meeting.dedupKey;
-			}
-		);
+		if (noteIndex.isOwn(legacyKeyed, calendarIds)) {
+			await app.fileManager.processFrontMatter(
+				legacyKeyed,
+				(fm: Record<string, unknown>) => {
+					fm["meeting_dedup_key"] = meeting.dedupKey;
+				}
+			);
+		}
 		await openFile(app, legacyKeyed, opts.openInNewPane);
 		return legacyKeyed;
 	}
 
-	// Rescheduled-meeting fallback: same UID, different start date.
-	// Recurring occurrences share one UID, so a single existing note would
-	// wrongly match from the second occurrence on — skip them entirely.
+	// HyperCap's note contract: same uid and date (recurring too), else the
+	// single note in the folder with the same date, start, and our file name
+	// or the title as heading. Our own notes from another calendar are only
+	// opened; another app's note gets our key once and is never rewritten
+	// after, not even by another of our calendars.
+	const facts = meetingFacts(meeting, calendar);
+	const folder = notesFolder(calendar);
+	const matched =
+		(await noteIndex.findNoteByUidAndDateVerified(
+			meeting.uid,
+			facts.date,
+			folder
+		)) ?? (await noteIndex.findForeignNoteVerified(facts, folder));
+	if (matched) {
+		if (
+			!noteIndex.isOwn(matched, calendarIds) &&
+			!noteIndex.isAdopted(matched)
+		) {
+			await app.vault.process(matched, (text) =>
+				adoptFrontMatter(text, meeting.dedupKey)
+			);
+		}
+		await openFile(app, matched, opts.openInNewPane);
+		return matched;
+	}
+
+	// Rescheduled-meeting fallback: same UID, different start date, own notes
+	// only. Recurring occurrences share one UID, so a single existing note
+	// would wrongly match from the second occurrence on — skip them entirely.
 	const rescheduled = meeting.recurring
 		? null
-		: noteIndex.findNoteByUidVerified(meeting.uid);
+		: noteIndex.findNoteByUidVerified(meeting.uid, calendarIds);
 	if (rescheduled) {
 		// 1. Update frontmatter
 		await app.fileManager.processFrontMatter(
@@ -84,12 +115,18 @@ export async function createOrOpenMeetingNote(
 			meeting,
 			calendar,
 		});
-		const newBaseName = sanitizeFilename(newTitle) || "Untitled meeting";
-		const folder = rescheduled.parent?.path ?? "";
-		let newPath = joinPath(folder, `${newBaseName}.md`);
+		const newBaseName = sanitizeFilename(newTitle);
+		const newPath = joinPath(
+			rescheduled.parent?.path ?? "",
+			`${newBaseName}.md`
+		);
 		if (newPath !== rescheduled.path) {
-			newPath = await uniquePath(app, newPath);
-			await app.fileManager.renameFile(rescheduled, newPath);
+			const unique = await uniquePath(app, newPath);
+			if (unique) {
+				await app.fileManager.renameFile(rescheduled, unique);
+			} else {
+				new Notice(copiesTakenMessage(newBaseName));
+			}
 		}
 
 		new Notice(
@@ -123,8 +160,12 @@ async function createStandaloneFile(opts: CreateOptions): Promise<TFile | null> 
 		meeting,
 		calendar,
 	});
-	const baseName = sanitizeFilename(titleBody) || "Untitled meeting";
+	const baseName = sanitizeFilename(titleBody);
 	const path = await uniquePath(app, joinPath(folder, `${baseName}.md`));
+	if (!path) {
+		new Notice(`${copiesTakenMessage(baseName)}; no note created`);
+		return null;
+	}
 
 	const body = renderTemplate(calendar.template, { meeting, calendar });
 	const file = await app.vault.create(path, body);
@@ -270,18 +311,21 @@ function joinPath(folder: string, name: string): string {
 	return normalizePath(`${folder}/${name}`);
 }
 
-async function uniquePath(app: App, path: string): Promise<string> {
+/** Copies " (2)" to " (9)", as HyperCap names them; null when all are taken. */
+async function uniquePath(app: App, path: string): Promise<string | null> {
 	if (!app.vault.getAbstractFileByPath(path)) return path;
 	const dot = path.lastIndexOf(".");
 	const stem = dot > 0 ? path.slice(0, dot) : path;
 	const ext = dot > 0 ? path.slice(dot) : "";
-	let i = 2;
-	while (i < 1000) {
+	for (let i = 2; i <= 9; i++) {
 		const candidate = `${stem} (${i})${ext}`;
 		if (!app.vault.getAbstractFileByPath(candidate)) return candidate;
-		i++;
 	}
-	return path;
+	return null;
+}
+
+function copiesTakenMessage(baseName: string): string {
+	return `Meetings Plus: "${baseName}" and its copies (2) to (9) already exist`;
 }
 
 async function openFile(
