@@ -146,7 +146,7 @@ export function pickSingle<T>(matches: T[]): T | null {
 /**
  * Adds our dedup key and `meetings_plus_adopted: true` to another app's note
  * and leaves every other byte as it was. Only those two lines are replaced
- * when already present.
+ * when already present. Front matter that is never closed is left alone.
  */
 export function adoptFrontMatter(text: string, dedupKey: string): string {
 	const fields: [string, string][] = [
@@ -161,7 +161,8 @@ export function adoptFrontMatter(text: string, dedupKey: string): string {
 	const eol = open[1] ?? "\n";
 	const start = open[0].length;
 	const close = /^---[ \t]*$/m.exec(text.slice(start));
-	const end = close ? start + close.index : text.length;
+	if (!close) return text;
+	const end = start + close.index;
 	let head = text.slice(start, end);
 	const missing: string[] = [];
 	for (const [k, v] of fields) {
