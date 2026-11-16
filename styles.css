@@ -12,6 +12,15 @@
 	gap: 8px;
 }
 
+.meetings-plus-harvest-btn {
+	width: 100%;
+}
+
+.meetings-plus-harvest-btn:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
 .meetings-plus-status-top {
 	display: flex;
 	align-items: center;
