@@ -411,7 +411,12 @@ export class MeetingsPlusView extends ItemView {
 	}
 
 	private hasNote(meeting: Meeting): boolean {
-		return Boolean(this.plugin.noteIndex.findNoteForMeeting(meeting));
+		const calendar = this.plugin.settings.calendars.find(
+			(c) => c.id === meeting.calendarId
+		);
+		return Boolean(
+			this.plugin.noteIndex.findNoteForMeeting(meeting, calendar)
+		);
 	}
 
 	private visibleMeetings(): Meeting[] {

@@ -78,7 +78,7 @@ async function updateDailyNoteOnce(opts: UpdateOptions): Promise<void> {
 	const { file } = dailyNote;
 
 	const original = await app.vault.read(file);
-	const next = replaceBlock(original, buildBlock(app, todays, timeFormat, noteIndex));
+	const next = replaceBlock(original, buildBlock(app, todays, calendars, timeFormat, noteIndex));
 	if (next !== original) {
 		await app.vault.modify(file, next);
 	}
@@ -87,6 +87,7 @@ async function updateDailyNoteOnce(opts: UpdateOptions): Promise<void> {
 function buildBlock(
 	app: App,
 	meetings: Meeting[],
+	calendars: CalendarConfig[],
 	timeFormat: TimeFormat,
 	noteIndex: NoteIndex
 ): string {
@@ -96,7 +97,10 @@ function buildBlock(
 	} else {
 		for (const m of meetings) {
 			const time = formatMeetingTime(m.start, timeFormat);
-			const existing = noteIndex.findNoteForMeeting(m);
+			const existing = noteIndex.findNoteForMeeting(
+				m,
+				calendars.find((c) => c.id === m.calendarId)
+			);
 			if (existing) {
 				lines.push(`- **${time}** [[${existing.basename}]]`);
 			} else {

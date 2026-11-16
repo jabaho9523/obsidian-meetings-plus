@@ -194,6 +194,7 @@ export default class MeetingsPlusPlugin extends Plugin {
 				runTemplater: this.settings.runTemplaterOnNewNotes,
 				openInNewPane: true,
 				noteIndex: this.noteIndex,
+				calendarIds: this.settings.calendars.map((c) => c.id),
 			});
 			void this.refreshDailyNote();
 		} catch (e) {

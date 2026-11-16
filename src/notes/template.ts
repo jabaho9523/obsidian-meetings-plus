@@ -213,9 +213,43 @@ function formatListYaml(values: string[]): string {
 	return `[${values.join(", ")}]`;
 }
 
+/**
+ * Port of HyperCap's MeetingNoteFolder.fileName(for:), so both apps give a
+ * meeting's note the same name.
+ */
 export function sanitizeFilename(name: string): string {
-	return name
-		.replace(/[\\/:*?"<>|]+/g, " ")
+	const spaced = name
+		.replace(/[\\/:*?"<>|\p{Cc}]/gu, " ")
 		.replace(/\s+/g, " ")
-		.trim();
+		.replace(/^[. ]+/, "");
+	return capUtf8Bytes(spaced, 200).trim() || "Untitled meeting";
+}
+
+interface GraphemeSegmenter {
+	segment(input: string): Iterable<{ segment: string }>;
+}
+
+/** Drops whole grapheme clusters (code points without Intl.Segmenter) from the end. */
+function capUtf8Bytes(s: string, max: number): string {
+	const encoder = new TextEncoder();
+	let bytes = encoder.encode(s).length;
+	if (bytes <= max) return s;
+	const Segmenter = (
+		Intl as unknown as {
+			Segmenter?: new (
+				locale?: string,
+				options?: { granularity: "grapheme" }
+			) => GraphemeSegmenter;
+		}
+	).Segmenter;
+	const parts = Segmenter
+		? Array.from(
+				new Segmenter(undefined, { granularity: "grapheme" }).segment(s),
+				(p) => p.segment
+			)
+		: Array.from(s);
+	while (bytes > max && parts.length > 0) {
+		bytes -= encoder.encode(parts.pop() ?? "").length;
+	}
+	return parts.join("");
 }
