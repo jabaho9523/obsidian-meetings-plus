@@ -243,12 +243,14 @@ Background refresh runs at your configured interval (default 15 min); on each re
 
 ## Plus Plugin Family
 
-Meetings Plus is part of the **Plus Plugin Family** for Obsidian:
+Part of the **Plus Plugin Family** for Obsidian — free, open-source, local-first:
 
-- **[Paste Plus](https://github.com/jabaho9523/obsidian-paste-plus)** — Smart paste: URLs become titled links, images get clean filenames, HTML converts to markdown, YouTube and Twitter links resolve to titles.
+- **[Paste Plus](https://github.com/jabaho9523/obsidian-paste-plus)** — Smart paste: URLs become titled links, images get clean filenames, HTML converts to markdown.
 - **[Vault Plus](https://github.com/jabaho9523/obsidian-vault-plus)** — Vault health dashboard: find and fix orphans, broken links, empty notes, duplicates, and more.
-- **[Link Plus](https://github.com/jabaho9523/obsidian-link-plus)** — Unlinked mention scanner: find and convert unlinked mentions vault-wide with one-click or batch operations.
-- **Meetings Plus** — Subscribe to calendars and create pre-filled meeting notes in one click.
+- **[Link Plus](https://github.com/jabaho9523/obsidian-link-plus)** — Find every unlinked mention in your vault and convert them to wikilinks — one click or batch.
+- **Meetings Plus** — Subscribe to calendars and create pre-filled meeting notes in one click. ICS-based, privacy-first.
+- **[Tasks Plus](https://github.com/jabaho9523/obsidian-tasks-plus)** — Calm GTD over plain markdown: Inbox, Today, Upcoming, Anytime, Someday, Logbook.
+- **[Assist Plus](https://github.com/jabaho9523/obsidian-assist-plus)** — Chat with Claude on your own API key, with strict control over what it sees and changes.
 
 ## Support
 
