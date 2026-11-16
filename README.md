@@ -195,6 +195,43 @@ Symlinked folders, symlinked notes, and notes with more than one hard link are s
 
 **Known limit:** renaming or moving a meeting after its note exists makes a new note the next time you open it.
 
+## Harvest tasks and questions
+
+While a meeting runs, write action items and open questions as you go. Harvest collects them afterwards. It is off by default; turn on **Enable harvest** in the settings.
+
+```
+- T: Send the revised budget @Anna 📅 2026-11-14
+- Q: Do we need sign-off from legal?
+  - A: Yes, before the pilot starts
+```
+
+- `T:` is a task. `@name` says who it is for. Dates use the same markers as Tasks Plus and Obsidian Tasks: `📅` due, `⏳` scheduled, `⏰` deadline.
+- `Q:` is a question. It counts as answered when a line indented under it starts with `A:`.
+- Each works as a list item or as a plain line. The prefixes can be changed in the settings. Lines in code blocks are ignored.
+
+**What Harvest changes in a note**
+
+- Each `T:` line becomes a checkbox on the same line, with a block ID at the end: `- [ ] Send the revised budget @Anna 📅 2026-11-14 ^mp-t3k9a2`. The ID marks the line as harvested, so harvesting again changes nothing.
+- `Q:` and `A:` lines stay as they are.
+- The note's properties get `open_tasks_count`, `open_questions` and `open_questions_count` (and `things_count`, for tasks sent to Things in a later version). They are recounted on every harvest. A note with nothing to harvest gets no properties.
+- Nothing else in the note is touched.
+
+With **Count plain checkboxes as tasks** on, open `- [ ]` lines you typed yourself also get a block ID and are counted.
+
+**When Harvest runs**
+
+- **Harvest this note**, the button at the top of the sidebar, and the command **Harvest tasks and questions from this note** work on the note you have open, whatever note it is.
+- **Harvest when leaving a note** (on once Harvest is enabled): a few seconds after you switch away from a note you edited, that note is harvested quietly.
+- The command **Harvest from all notes in scope** goes through every note in scope.
+
+**Harvest automatically from** sets what the last two cover: **Meetings Plus notes only** (the notes Meetings Plus made), or **Any note in these folders**, with a folder list that includes subfolders. Meeting notes from other apps, such as HyperCap's, are never harvested on leave or by the command for all notes; the command tells you how many it skipped. Harvest those one at a time with the button. In such a note Harvest never changes `meeting_uid`, `date`, `start`, the heading or the file name.
+
+**Seeing the tasks and questions**
+
+Harvested tasks are ordinary checkboxes in the meeting note, so [Tasks Plus](https://github.com/jabaho9523/obsidian-tasks-plus) and Obsidian Tasks show them without a copy. Ticking one there or in the note is the same edit.
+
+The command **Create meetings overview** writes `Meetings overview.base` (in the first scope folder, or the vault root) and opens it. It lists notes, not lines, in three views: **Open tasks**, **Open questions** and **Sent to Things**. An existing file is opened, never overwritten. Bases need Obsidian 1.9 or later and the Bases core plugin; the rest of Harvest works on older versions.
+
 ## Settings
 
 Global options:
@@ -206,6 +243,7 @@ Global options:
 - **Notification lead time (minutes)** — how far in advance to notify
 - **Run Templater on new notes** — post-process meeting notes through Templater if installed
 - **Open dashboard on startup** — auto-open the sidebar when Obsidian loads
+- **Harvest** — see [Harvest tasks and questions](#harvest-tasks-and-questions)
 
 Per-calendar options live in the calendar editor and cover URL, color, folder, title pattern, tags, template, and which features (standalone notes, daily-note append) apply.
 
