@@ -1,6 +1,8 @@
 import esbuild from "esbuild";
 import process from "process";
 import { builtinModules } from 'node:module';
+import { readdirSync } from "node:fs";
+import path from "node:path";
 
 const banner =
 `/*
@@ -11,12 +13,33 @@ if you want to view the source, please visit the github repository of this plugi
 
 const prod = (process.argv[2] === "production");
 
+// "release-notes" exports { "<version>": "<markdown>" } from release-notes/*.md.
+const releaseNotes = {
+	name: "release-notes",
+	setup(build) {
+		build.onResolve({ filter: /^release-notes$/ }, () => ({
+			path: "release-notes",
+			namespace: "release-notes",
+		}));
+		build.onLoad({ filter: /.*/, namespace: "release-notes" }, () => {
+			const dir = path.resolve("release-notes");
+			const files = readdirSync(dir).filter((f) => f.endsWith(".md"));
+			const lines = files.map((f, i) => `import n${i} from ${JSON.stringify(path.join(dir, f))};`);
+			const entries = files.map((f, i) => `${JSON.stringify(f.slice(0, -3))}: n${i}`);
+			lines.push(`export default { ${entries.join(", ")} };`);
+			return { contents: lines.join("\n"), resolveDir: dir, watchFiles: files.map((f) => path.join(dir, f)), watchDirs: [dir] };
+		});
+	},
+};
+
 const context = await esbuild.context({
 	banner: {
 		js: banner,
 	},
 	entryPoints: ["src/main.ts"],
 	bundle: true,
+	loader: { ".md": "text" },
+	plugins: [releaseNotes],
 	external: [
 		"obsidian",
 		"electron",

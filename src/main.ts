@@ -23,6 +23,14 @@ import {
 	HarvestLineOptions,
 } from "./editor/harvest-lines";
 import { Harvester } from "./harvest/harvester";
+import releaseNotes from "release-notes";
+import { WhatsNewModal } from "./ui/whats-new-modal";
+import {
+	decideOnStartup,
+	majorMinor,
+	notesBetween,
+	notesForCurrentLine,
+} from "./whats-new/versions";
 
 export default class MeetingsPlusPlugin extends Plugin {
 	settings!: MeetingsPlusSettings;
@@ -30,6 +38,7 @@ export default class MeetingsPlusPlugin extends Plugin {
 	noteIndex!: NoteIndex;
 	harvester!: Harvester;
 	private scheduler!: PreMeetingScheduler;
+	private hadSavedData = false;
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
@@ -187,12 +196,51 @@ export default class MeetingsPlusPlugin extends Plugin {
 			void this.refreshDailyNote();
 		});
 
+		this.addCommand({
+			id: "show-whats-new",
+			name: "Show what's new",
+			callback: () => {
+				const current = this.manifest.version;
+				new WhatsNewModal(
+					this.app,
+					majorMinor(current),
+					notesForCurrentLine(releaseNotes, current)
+				).open();
+			},
+		});
+
 		this.app.workspace.onLayoutReady(() => {
 			this.manager.start();
 			if (this.settings.openDashboardOnStart) {
 				void this.activateView();
 			}
+			void this.showWhatsNewAfterUpdate();
 		});
+	}
+
+	private async showWhatsNewAfterUpdate(): Promise<void> {
+		const current = this.manifest.version;
+		const stored = this.settings.lastShownVersion;
+		const decision = decideOnStartup(
+			stored,
+			current,
+			this.settings.showWhatsNew,
+			this.hadSavedData
+		);
+		if (decision.show) {
+			// No stored version: an upgrade from before the window existed.
+			const notes =
+				stored === ""
+					? notesForCurrentLine(releaseNotes, current)
+					: notesBetween(releaseNotes, stored, current);
+			if (notes.length > 0) {
+				new WhatsNewModal(this.app, majorMinor(current), notes).open();
+			}
+		}
+		if (decision.store !== null) {
+			this.settings.lastShownVersion = decision.store;
+			await this.saveSettings();
+		}
 	}
 
 	onunload(): void {
@@ -203,6 +251,7 @@ export default class MeetingsPlusPlugin extends Plugin {
 
 	async loadSettings(): Promise<void> {
 		const loaded = (await this.loadData()) as Partial<MeetingsPlusSettings> | null;
+		this.hadSavedData = loaded !== null && loaded !== undefined;
 		this.settings = {
 			...DEFAULT_SETTINGS,
 			...(loaded ?? {}),

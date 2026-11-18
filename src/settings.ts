@@ -25,6 +25,9 @@ export interface MeetingsPlusSettings {
 	runTemplaterOnNewNotes: boolean;
 	openDashboardOnStart: boolean;
 	hideSectionMarkers: boolean;
+	showWhatsNew: boolean;
+	/** Version whose "What's new" was last shown; "" until the first load */
+	lastShownVersion: string;
 	/** Harvest: T: lines become checkboxes, open Q: lines become properties */
 	harvestEnabled: boolean;
 	harvestTaskPrefix: string;
@@ -169,6 +172,8 @@ export const DEFAULT_SETTINGS: MeetingsPlusSettings = {
 	runTemplaterOnNewNotes: false,
 	openDashboardOnStart: false,
 	hideSectionMarkers: true,
+	showWhatsNew: true,
+	lastShownVersion: "",
 	harvestEnabled: false,
 	harvestTaskPrefix: "T:",
 	harvestQuestionPrefix: "Q:",

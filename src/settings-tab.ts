@@ -29,6 +29,7 @@ type BooleanKey =
 	| "enableNotifications"
 	| "runTemplaterOnNewNotes"
 	| "openDashboardOnStart"
+	| "showWhatsNew"
 	| "harvestPlainCheckboxes"
 	| "harvestOnLeave";
 
@@ -121,6 +122,11 @@ export class MeetingsPlusSettingTab extends PluginSettingTab {
 						this.app.workspace.updateOptions();
 					})
 			);
+		this.toggle(
+			"Show what's new after updates",
+			"Open the release notes once after Meetings Plus updates to a new minor version.",
+			"showWhatsNew"
+		);
 
 		this.renderHarvest(containerEl.createDiv());
 
