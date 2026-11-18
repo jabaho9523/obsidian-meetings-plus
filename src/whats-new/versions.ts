@@ -24,17 +24,20 @@ export interface StartupDecision {
 }
 
 /**
- * First install stores the version and shows nothing. A newer major or minor
- * shows the window (when enabled) and stores the version. Turned off, the
- * version is stored without showing, so turning it on later starts fresh.
- * A patch-only change, or anything unparseable, does nothing.
+ * First install (no saved data) stores the version and shows nothing. Saved
+ * data with no stored version is an upgrade from before the window: it shows
+ * the window (when enabled) and stores the version. A newer major or minor
+ * does the same. Turned off, the version is stored without showing, so
+ * turning it on later starts fresh. A patch-only change, or anything
+ * unparseable, does nothing.
  */
 export function decideOnStartup(
 	stored: string,
 	current: string,
-	enabled: boolean
+	enabled: boolean,
+	hadSavedData: boolean
 ): StartupDecision {
-	if (stored === "") return { show: false, store: current };
+	if (stored === "") return { show: hadSavedData && enabled, store: current };
 	const s = parseVersion(stored);
 	const c = parseVersion(current);
 	if (!s || !c) return { show: false, store: null };

@@ -264,7 +264,7 @@ Filters apply when a feed is parsed, so changing one re-fetches that calendar an
 
 ## What's new window
 
-After Meetings Plus updates to a new minor version (0.8.0, 0.9.0), a window shows the release notes once, with a link to support the plugin. Patch updates and first installs don't open it, and the command **Show what's new** opens it any time. Turn it off with **Show what's new after updates**. The notes are bundled with the plugin, so the window makes no network calls.
+After Meetings Plus updates to a new minor version (0.8.0, 0.9.0), a window shows the release notes once, with a link to support the plugin. Patch updates and first installs don't open it; the first update from a version before the window existed does. The command **Show what's new** opens it any time. Turn it off with **Show what's new after updates**. The notes are bundled with the plugin, so the window makes no network calls.
 
 ## How it works (under the hood)
 

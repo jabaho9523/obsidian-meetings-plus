@@ -38,6 +38,7 @@ export default class MeetingsPlusPlugin extends Plugin {
 	noteIndex!: NoteIndex;
 	harvester!: Harvester;
 	private scheduler!: PreMeetingScheduler;
+	private hadSavedData = false;
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
@@ -220,9 +221,18 @@ export default class MeetingsPlusPlugin extends Plugin {
 	private async showWhatsNewAfterUpdate(): Promise<void> {
 		const current = this.manifest.version;
 		const stored = this.settings.lastShownVersion;
-		const decision = decideOnStartup(stored, current, this.settings.showWhatsNew);
+		const decision = decideOnStartup(
+			stored,
+			current,
+			this.settings.showWhatsNew,
+			this.hadSavedData
+		);
 		if (decision.show) {
-			const notes = notesBetween(releaseNotes, stored, current);
+			// No stored version: an upgrade from before the window existed.
+			const notes =
+				stored === ""
+					? notesForCurrentLine(releaseNotes, current)
+					: notesBetween(releaseNotes, stored, current);
 			if (notes.length > 0) {
 				new WhatsNewModal(this.app, majorMinor(current), notes).open();
 			}
@@ -241,6 +251,7 @@ export default class MeetingsPlusPlugin extends Plugin {
 
 	async loadSettings(): Promise<void> {
 		const loaded = (await this.loadData()) as Partial<MeetingsPlusSettings> | null;
+		this.hadSavedData = loaded !== null && loaded !== undefined;
 		this.settings = {
 			...DEFAULT_SETTINGS,
 			...(loaded ?? {}),
