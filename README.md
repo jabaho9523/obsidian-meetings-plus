@@ -266,7 +266,6 @@ Each calendar can hide events you don't want cluttering the sidebar:
 Filters apply when a feed is parsed, so changing one re-fetches that calendar and takes effect right away. Filtered events are hidden everywhere — sidebar, daily-note list, and pre-meeting notifications.
 
 ![Settings](docs/screenshot-3.png)
-![Calendar editor](docs/screenshot-4.png)
 
 ## What's new window
 
