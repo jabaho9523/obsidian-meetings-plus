@@ -243,6 +243,7 @@ Global options:
 - **Notification lead time (minutes)** — how far in advance to notify
 - **Run Templater on new notes** — post-process meeting notes through Templater if installed
 - **Open dashboard on startup** — auto-open the sidebar when Obsidian loads
+- **Show what's new after updates** — see [What's new window](#whats-new-window)
 - **Harvest** — see [Harvest tasks and questions](#harvest-tasks-and-questions)
 
 Per-calendar options live in the calendar editor and cover URL, color, folder, title pattern, tags, template, and which features (standalone notes, daily-note append) apply.
@@ -260,6 +261,10 @@ Filters apply when a feed is parsed, so changing one re-fetches that calendar an
 
 ![Settings](docs/screenshot-3.png)
 ![Calendar editor](docs/screenshot-4.png)
+
+## What's new window
+
+After Meetings Plus updates to a new minor version (0.8.0, 0.9.0), a window shows the release notes once, with a link to support the plugin. Patch updates and first installs don't open it, and the command **Show what's new** opens it any time. Turn it off with **Show what's new after updates**. The notes are bundled with the plugin, so the window makes no network calls.
 
 ## How it works (under the hood)
 
