@@ -17,11 +17,18 @@ import { updateDailyNote } from "./notes/daily-note";
 import { PreMeetingScheduler } from "./notifications/pre-meeting";
 import { NoteIndex } from "./notes/duplicate-detector";
 import { hideSectionMarkers } from "./editor/hide-markers";
+import {
+	harvestLines,
+	harvestPrefixPostProcessor,
+	HarvestLineOptions,
+} from "./editor/harvest-lines";
+import { Harvester } from "./harvest/harvester";
 
 export default class MeetingsPlusPlugin extends Plugin {
 	settings!: MeetingsPlusSettings;
 	manager!: CalendarManager;
 	noteIndex!: NoteIndex;
+	harvester!: Harvester;
 	private scheduler!: PreMeetingScheduler;
 
 	async onload(): Promise<void> {
@@ -123,10 +130,56 @@ export default class MeetingsPlusPlugin extends Plugin {
 			},
 		});
 
+		this.harvester = new Harvester(this);
+		this.harvester.start();
+
+		this.addCommand({
+			id: "harvest-note",
+			name: "Harvest tasks and questions from this note",
+			checkCallback: (checking) => {
+				if (!this.settings.harvestEnabled) return false;
+				if (!this.harvester.activeNote()) return false;
+				if (!checking) void this.harvester.harvestActive();
+				return true;
+			},
+		});
+
+		this.addCommand({
+			id: "harvest-all",
+			name: "Harvest from all notes in scope",
+			checkCallback: (checking) => {
+				if (!this.settings.harvestEnabled) return false;
+				if (!checking) void this.harvester.harvestAll();
+				return true;
+			},
+		});
+
+		this.addCommand({
+			id: "create-meetings-overview",
+			name: "Create meetings overview",
+			checkCallback: (checking) => {
+				if (!this.settings.harvestEnabled) return false;
+				if (!checking) void this.harvester.createOverview();
+				return true;
+			},
+		});
+
 		this.addSettingTab(new MeetingsPlusSettingTab(this.app, this));
 
 		this.registerEditorExtension(
 			hideSectionMarkers(() => this.settings.hideSectionMarkers)
+		);
+
+		const harvestLineOptions = (): HarvestLineOptions => ({
+			enabled: this.settings.harvestEnabled,
+			prefixes: [
+				this.settings.harvestQuestionPrefix.trim(),
+				this.settings.harvestAnswerPrefix.trim(),
+			],
+		});
+		this.registerEditorExtension(harvestLines(harvestLineOptions));
+		this.registerMarkdownPostProcessor(
+			harvestPrefixPostProcessor(harvestLineOptions)
 		);
 
 		this.manager.events.on("refresh:completed", () => {
@@ -144,6 +197,7 @@ export default class MeetingsPlusPlugin extends Plugin {
 
 	onunload(): void {
 		this.scheduler?.clear();
+		this.harvester?.stop();
 		this.manager?.stop();
 	}
 
@@ -155,6 +209,7 @@ export default class MeetingsPlusPlugin extends Plugin {
 			cache: { ...(loaded?.cache ?? {}) },
 			calendars: (loaded?.calendars ?? []).map(migrateCalendar),
 			skippedToday: loaded?.skippedToday ?? [],
+			harvestFolders: [...(loaded?.harvestFolders ?? [])],
 		};
 	}
 

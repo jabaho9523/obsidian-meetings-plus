@@ -16,9 +16,10 @@ export type HarvestKind = "task" | "question" | "answer";
 
 /**
  * How the line is written: "prefix" is an unharvested T:/Q:/A: line,
- * "checkbox" a harvested task, "things" a task sent to Things.
+ * "checkbox" a harvested task, "things" a task sent to Things, "plain" an
+ * open "- [ ]" line without an ^mp- id (only when plain checkboxes count).
  */
-export type HarvestForm = "prefix" | "checkbox" | "things";
+export type HarvestForm = "prefix" | "checkbox" | "things" | "plain";
 
 export interface HarvestItem {
 	/** Zero-based index into the text split on line breaks */
@@ -47,7 +48,7 @@ export interface HarvestItem {
 }
 
 export interface HarvestCounts {
-	/** T: lines not yet converted */
+	/** T: lines not yet converted, and plain checkboxes without a block id */
 	unharvested: number;
 	openTasks: number;
 	things: number;
@@ -142,10 +143,12 @@ function prefixKind(rest: string, prefixes: HarvestPrefixes): [HarvestKind, stri
 /**
  * Items in a note. A note with unclosed front matter has none.
  * Works on LF and CRLF text; `line` indexes `text.split(/\r?\n/)`.
+ * With `plainCheckboxes`, open "- [ ]" lines without an ^mp- id are tasks too.
  */
 export function parseHarvest(
 	text: string,
 	prefixes: HarvestPrefixes = DEFAULT_PREFIXES,
+	plainCheckboxes = false,
 ): HarvestItem[] {
 	const lines = text.split(/\r?\n/);
 	const skip = skippedLines(lines);
@@ -176,16 +179,21 @@ export function parseHarvest(
 
 		const prefixed = prefixKind(rest, prefixes);
 		const ours = list && blockId !== null && blockId.startsWith("mp-");
-		const box = ours ? CHECKBOX.exec(rest) : null;
+		const box = list ? CHECKBOX.exec(rest) : null;
 		const things = ours ? THINGS.exec(rest) : null;
 		if (prefixed) {
 			[kind, itemText] = prefixed;
 			if (!itemText) continue;
-		} else if (box) {
+		} else if (box && ours) {
 			kind = "task";
 			form = "checkbox";
 			done = box[1] !== " ";
 			itemText = (box[2] ?? "").trim();
+		} else if (box && plainCheckboxes && box[1] === " ") {
+			kind = "task";
+			form = "plain";
+			itemText = (box[2] ?? "").trim();
+			if (!itemText) continue;
 		} else if (things) {
 			kind = "task";
 			form = "things";
@@ -271,8 +279,14 @@ export function openQuestions(items: HarvestItem[]): string[] {
 export function counts(items: HarvestItem[]): HarvestCounts {
 	const tasks = items.filter((item) => item.kind === "task");
 	return {
-		unharvested: tasks.filter((item) => item.form === "prefix").length,
-		openTasks: tasks.filter((item) => item.form === "checkbox" && !item.done).length,
+		unharvested: tasks.filter(
+			(item) => item.form === "prefix" || (item.form === "plain" && !item.blockId),
+		).length,
+		openTasks: tasks.filter(
+			(item) =>
+				(item.form === "checkbox" && !item.done) ||
+				(item.form === "plain" && item.blockId !== null),
+		).length,
 		things: tasks.filter((item) => item.form === "things").length,
 		openQuestions: openQuestions(items).length,
 	};

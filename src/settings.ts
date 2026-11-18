@@ -9,6 +9,7 @@ import {
 	TimeFormat,
 } from "./types";
 import { SETTINGS_VERSION } from "./constants";
+import { HarvestScopeMode } from "./harvest/scope";
 
 export interface MeetingsPlusSettings {
 	version: number;
@@ -24,6 +25,19 @@ export interface MeetingsPlusSettings {
 	runTemplaterOnNewNotes: boolean;
 	openDashboardOnStart: boolean;
 	hideSectionMarkers: boolean;
+	/** Harvest: T: lines become checkboxes, open Q: lines become properties */
+	harvestEnabled: boolean;
+	harvestTaskPrefix: string;
+	harvestQuestionPrefix: string;
+	harvestAnswerPrefix: string;
+	/** Also give plain "- [ ]" lines a block id and count them */
+	harvestPlainCheckboxes: boolean;
+	/** Applies once harvestEnabled is on */
+	harvestOnLeave: boolean;
+	/** What on-leave and "all notes in scope" cover */
+	harvestScope: HarvestScopeMode;
+	/** Used when harvestScope is "folders"; "/" is the whole vault */
+	harvestFolders: string[];
 	calendars: CalendarConfig[];
 	/** Persisted cache. Keyed by calendarId. */
 	cache: Record<string, PersistedCacheEntry>;
@@ -155,6 +169,14 @@ export const DEFAULT_SETTINGS: MeetingsPlusSettings = {
 	runTemplaterOnNewNotes: false,
 	openDashboardOnStart: false,
 	hideSectionMarkers: true,
+	harvestEnabled: false,
+	harvestTaskPrefix: "T:",
+	harvestQuestionPrefix: "Q:",
+	harvestAnswerPrefix: "A:",
+	harvestPlainCheckboxes: false,
+	harvestOnLeave: true,
+	harvestScope: "own",
+	harvestFolders: [],
 	calendars: [],
 	cache: {},
 	skippedToday: [],

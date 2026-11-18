@@ -5,9 +5,16 @@ import {
 	setIcon,
 } from "obsidian";
 import MeetingsPlusPlugin from "./main";
-import { MAX_LOOK_BACK_DAYS } from "./constants";
+import {
+	MAX_LOOK_BACK_DAYS,
+	PLUGIN_NAME,
+	VIEW_TYPE_MEETINGS_PLUS,
+} from "./constants";
 import { DEFAULT_SETTINGS, makeDefaultCalendar } from "./settings";
 import { TimeFormat } from "./types";
+import { HarvestScopeMode } from "./harvest/scope";
+import { FolderSuggestModal } from "./ui/folder-suggest";
+import { MeetingsPlusView } from "./ui/MeetingsPlusView";
 import { CalendarEditorModal } from "./ui/calendar-editor-modal";
 import { generateId } from "./util/id";
 
@@ -21,7 +28,14 @@ type NumericKey =
 type BooleanKey =
 	| "enableNotifications"
 	| "runTemplaterOnNewNotes"
-	| "openDashboardOnStart";
+	| "openDashboardOnStart"
+	| "harvestPlainCheckboxes"
+	| "harvestOnLeave";
+
+type PrefixKey =
+	| "harvestTaskPrefix"
+	| "harvestQuestionPrefix"
+	| "harvestAnswerPrefix";
 
 export class MeetingsPlusSettingTab extends PluginSettingTab {
 	plugin: MeetingsPlusPlugin;
@@ -108,6 +122,8 @@ export class MeetingsPlusSettingTab extends PluginSettingTab {
 					})
 			);
 
+		this.renderHarvest(containerEl.createDiv());
+
 		new Setting(containerEl).setName("Calendars").setHeading();
 
 		this.listEl = containerEl.createDiv({ cls: "meetings-plus-cal-list" });
@@ -131,6 +147,132 @@ export class MeetingsPlusSettingTab extends PluginSettingTab {
 					}).open();
 				})
 		);
+	}
+
+	private renderHarvest(containerEl: HTMLElement): void {
+		containerEl.empty();
+		const redraw = () => this.renderHarvest(containerEl);
+		const settings = this.plugin.settings;
+		const refreshViews = () => {
+			for (const leaf of this.app.workspace.getLeavesOfType(
+				VIEW_TYPE_MEETINGS_PLUS
+			)) {
+				if (leaf.view instanceof MeetingsPlusView) leaf.view.render();
+			}
+		};
+
+		new Setting(containerEl).setName("Harvest").setHeading();
+		new Setting(containerEl)
+			.setName("Enable harvest")
+			.setDesc(
+				"Turn task lines into checkboxes and list open questions in the note's properties. Adds the harvest commands and a sidebar button."
+			)
+			.addToggle((t) =>
+				t.setValue(settings.harvestEnabled).onChange(async (v) => {
+					settings.harvestEnabled = v;
+					await this.plugin.saveSettings();
+					refreshViews();
+					redraw();
+				})
+			);
+		if (!settings.harvestEnabled) return;
+
+		this.prefixField(
+			containerEl,
+			"Task prefix",
+			"Lines starting with this become checkboxes.",
+			"harvestTaskPrefix"
+		);
+		this.prefixField(
+			containerEl,
+			"Question prefix",
+			"Lines starting with this are questions.",
+			"harvestQuestionPrefix"
+		);
+		this.prefixField(
+			containerEl,
+			"Answer prefix",
+			"A line with this prefix, indented under a question, answers it.",
+			"harvestAnswerPrefix"
+		);
+		this.toggle(
+			"Count plain checkboxes as tasks",
+			"Also give open checkbox lines a block ID and count them.",
+			"harvestPlainCheckboxes",
+			containerEl
+		);
+		this.toggle(
+			"Harvest when leaving a note",
+			"Harvest an edited note a few seconds after you switch away from it. Notes from other apps are never harvested this way.",
+			"harvestOnLeave",
+			containerEl
+		);
+		new Setting(containerEl)
+			.setName("Harvest automatically from")
+			.setDesc(
+				"Which notes are harvested when you leave them and by the command for all notes in scope. The sidebar button and the command for this note work on any note."
+			)
+			.addDropdown((d) => {
+				d.addOption("own", `${PLUGIN_NAME} notes only`);
+				d.addOption("folders", "Any note in these folders");
+				d.setValue(settings.harvestScope);
+				d.onChange(async (v) => {
+					settings.harvestScope = v as HarvestScopeMode;
+					await this.plugin.saveSettings();
+					redraw();
+				});
+			});
+		if (settings.harvestScope !== "folders") return;
+
+		for (const folder of settings.harvestFolders) {
+			new Setting(containerEl).setName(folder).addExtraButton((b) =>
+				b
+					.setIcon("trash-2")
+					.setTooltip("Remove folder")
+					.onClick(async () => {
+						settings.harvestFolders = settings.harvestFolders.filter(
+							(f) => f !== folder
+						);
+						await this.plugin.saveSettings();
+						redraw();
+					})
+			);
+		}
+		new Setting(containerEl)
+			.setDesc("Notes in these folders and their subfolders are in scope.")
+			.addButton((b) =>
+				b.setButtonText("Add folder").onClick(() => {
+					new FolderSuggestModal(this.app, (path) => {
+						const folder = path || "/";
+						if (settings.harvestFolders.includes(folder)) return;
+						settings.harvestFolders.push(folder);
+						void this.plugin.saveSettings().then(redraw);
+					}).open();
+				})
+			);
+	}
+
+	private prefixField(
+		parent: HTMLElement,
+		name: string,
+		desc: string,
+		key: PrefixKey
+	): void {
+		new Setting(parent)
+			.setName(name)
+			.setDesc(desc)
+			.addText((t) => {
+				const fallback = DEFAULT_SETTINGS[key];
+				t.setPlaceholder(fallback);
+				t.setValue(this.plugin.settings[key]);
+				t.onChange(async (v) => {
+					this.plugin.settings[key] = v.trim() || fallback;
+					await this.plugin.saveSettings();
+				});
+				t.inputEl.addEventListener("blur", () => {
+					t.setValue(this.plugin.settings[key]);
+				});
+			});
 	}
 
 	private refreshList(): void {
@@ -206,8 +348,13 @@ export class MeetingsPlusSettingTab extends PluginSettingTab {
 		}
 	}
 
-	private toggle(name: string, desc: string, key: BooleanKey): void {
-		new Setting(this.containerEl)
+	private toggle(
+		name: string,
+		desc: string,
+		key: BooleanKey,
+		parent: HTMLElement = this.containerEl
+	): void {
+		new Setting(parent)
 			.setName(name)
 			.setDesc(desc)
 			.addToggle((t) =>

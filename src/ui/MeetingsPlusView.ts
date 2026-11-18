@@ -27,6 +27,7 @@ export class MeetingsPlusView extends ItemView {
 	private unsubRefresh: (() => void) | null = null;
 	private rerenderTimer: number | null = null;
 	private pendingScrollKey: string | null = null;
+	private harvestButton: HTMLButtonElement | null = null;
 
 	constructor(leaf: WorkspaceLeaf, private plugin: MeetingsPlusPlugin) {
 		super(leaf);
@@ -57,6 +58,14 @@ export class MeetingsPlusView extends ItemView {
 			startedUnsub();
 			completedUnsub();
 		};
+
+		const { workspace } = this.app;
+		this.registerEvent(
+			workspace.on("active-leaf-change", () => this.updateHarvestButton())
+		);
+		this.registerEvent(
+			workspace.on("file-open", () => this.updateHarvestButton())
+		);
 
 		this.rerenderTimer = window.setInterval(
 			() => this.render(),
@@ -128,6 +137,8 @@ export class MeetingsPlusView extends ItemView {
 			onPickDay: (k) => this.jumpToDay(k),
 			onChangeDays: (n) => this.changeDays(n),
 		});
+
+		this.renderHarvestButton(root);
 
 		if (calendars.length === 0) {
 			this.renderEmptyState(root);
@@ -243,6 +254,25 @@ export class MeetingsPlusView extends ItemView {
 				}
 			});
 		}
+	}
+
+	private renderHarvestButton(parent: HTMLElement): void {
+		this.harvestButton = null;
+		if (!this.plugin.settings.harvestEnabled) return;
+		const btn = parent.createEl("button", {
+			cls: "meetings-plus-harvest-btn",
+			text: "Harvest this note",
+		});
+		btn.addEventListener("click", () => {
+			void this.plugin.harvester.harvestActive();
+		});
+		this.harvestButton = btn;
+		this.updateHarvestButton();
+	}
+
+	private updateHarvestButton(): void {
+		if (!this.harvestButton) return;
+		this.harvestButton.disabled = !this.plugin.harvester.activeNote();
 	}
 
 	private renderEmptyState(parent: HTMLElement): void {
