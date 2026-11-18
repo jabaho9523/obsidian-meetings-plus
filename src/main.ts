@@ -23,6 +23,7 @@ import {
 	HarvestLineOptions,
 } from "./editor/harvest-lines";
 import { Harvester } from "./harvest/harvester";
+import { SidebarTasks } from "./harvest/sidebar-tasks";
 import releaseNotes from "release-notes";
 import { WhatsNewModal } from "./ui/whats-new-modal";
 import {
@@ -37,6 +38,7 @@ export default class MeetingsPlusPlugin extends Plugin {
 	manager!: CalendarManager;
 	noteIndex!: NoteIndex;
 	harvester!: Harvester;
+	sidebarTasks!: SidebarTasks;
 	private scheduler!: PreMeetingScheduler;
 	private hadSavedData = false;
 
@@ -141,6 +143,7 @@ export default class MeetingsPlusPlugin extends Plugin {
 
 		this.harvester = new Harvester(this);
 		this.harvester.start();
+		this.sidebarTasks = new SidebarTasks(this);
 
 		this.addCommand({
 			id: "harvest-note",

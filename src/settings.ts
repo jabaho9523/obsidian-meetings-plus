@@ -41,6 +41,10 @@ export interface MeetingsPlusSettings {
 	harvestScope: HarvestScopeMode;
 	/** Used when harvestScope is "folders"; "/" is the whole vault */
 	harvestFolders: string[];
+	/** Applies once harvestEnabled is on */
+	harvestSidebarTasks: boolean;
+	/** The sidebar's "Open tasks" list covers notes changed in this many days */
+	harvestOpenTasksDays: number;
 	calendars: CalendarConfig[];
 	/** Persisted cache. Keyed by calendarId. */
 	cache: Record<string, PersistedCacheEntry>;
@@ -182,6 +186,8 @@ export const DEFAULT_SETTINGS: MeetingsPlusSettings = {
 	harvestOnLeave: true,
 	harvestScope: "own",
 	harvestFolders: [],
+	harvestSidebarTasks: true,
+	harvestOpenTasksDays: 14,
 	calendars: [],
 	cache: {},
 	skippedToday: [],

@@ -1,4 +1,4 @@
-import { ItemView, Notice, WorkspaceLeaf, setIcon } from "obsidian";
+import { ItemView, Notice, WorkspaceLeaf, debounce, setIcon } from "obsidian";
 import { moment } from "../util/time";
 import MeetingsPlusPlugin from "../main";
 import {
@@ -18,6 +18,7 @@ import {
 } from "./components/meeting-row";
 import { renderStatusHeader } from "./components/status-header";
 import { renderCurrentMeeting } from "./components/current-meeting";
+import { SidebarTask } from "../harvest/sidebar-tasks";
 
 const IMMINENT_WINDOW_MS = 10 * 60 * 1000;
 
@@ -28,6 +29,10 @@ export class MeetingsPlusView extends ItemView {
 	private rerenderTimer: number | null = null;
 	private pendingScrollKey: string | null = null;
 	private harvestButton: HTMLButtonElement | null = null;
+	/** Paths of the notes whose task list is open under their meeting */
+	private expandedNotes = new Set<string>();
+	/** Paths of the notes with tasks in the last render */
+	private taskNotes = new Set<string>();
 
 	constructor(leaf: WorkspaceLeaf, private plugin: MeetingsPlusPlugin) {
 		super(leaf);
@@ -67,6 +72,19 @@ export class MeetingsPlusView extends ItemView {
 			workspace.on("file-open", () => this.updateHarvestButton())
 		);
 
+		const onTasksChanged = debounce(() => this.render(), 500, true);
+		this.registerEvent(
+			this.app.metadataCache.on("changed", (file, _data, cache) => {
+				if (!this.plugin.sidebarTasks.enabled()) return;
+				if (
+					this.taskNotes.has(file.path) ||
+					cache.listItems?.some((item) => item.task !== undefined)
+				) {
+					onTasksChanged();
+				}
+			})
+		);
+
 		this.rerenderTimer = window.setInterval(
 			() => this.render(),
 			60_000
@@ -89,6 +107,7 @@ export class MeetingsPlusView extends ItemView {
 
 	render(): void {
 		this.contentEl.empty();
+		this.taskNotes.clear();
 		const root = this.contentEl.createDiv({
 			cls: "meetings-plus-container",
 		});
@@ -142,6 +161,7 @@ export class MeetingsPlusView extends ItemView {
 
 		if (calendars.length === 0) {
 			this.renderEmptyState(root);
+			this.renderOpenTasks(root);
 			return;
 		}
 
@@ -241,6 +261,8 @@ export class MeetingsPlusView extends ItemView {
 				text: "Nothing scheduled.",
 			});
 		}
+
+		this.renderOpenTasks(root);
 
 		if (this.pendingScrollKey) {
 			const target = this.pendingScrollKey;
@@ -363,15 +385,7 @@ export class MeetingsPlusView extends ItemView {
 		}
 
 		for (const meeting of toRender) {
-			renderMeetingRow({
-				parent: body,
-				meeting,
-				calendar: calIndex.get(meeting.calendarId),
-				hasNote: this.hasNote(meeting),
-				timeFormat: this.plugin.settings.timeFormat,
-				onActivate: (m) => this.activate(m),
-				onContextMenu: (m, evt) => this.showContextMenu(m, evt),
-			});
+			this.renderRow(body, meeting, calIndex);
 		}
 
 		if (earlier.length > 0) {
@@ -408,16 +422,109 @@ export class MeetingsPlusView extends ItemView {
 			cls: "meetings-plus-earlier-body",
 		});
 		for (const meeting of meetings) {
-			renderMeetingRow({
-				parent: body,
-				meeting,
-				calendar: calIndex.get(meeting.calendarId),
-				hasNote: this.hasNote(meeting),
-				timeFormat: this.plugin.settings.timeFormat,
-				onActivate: (m) => this.activate(m),
-				onContextMenu: (m, evt) => this.showContextMenu(m, evt),
+			this.renderRow(body, meeting, calIndex);
+		}
+	}
+
+	private renderRow(
+		parent: HTMLElement,
+		meeting: Meeting,
+		calIndex: Map<string, CalendarConfig>
+	): void {
+		const calendar = calIndex.get(meeting.calendarId);
+		const note = this.plugin.noteIndex.findNoteForMeeting(meeting, calendar);
+		const sidebarTasks = this.plugin.sidebarTasks;
+		const count = note && sidebarTasks.enabled() ? sidebarTasks.count(note) : null;
+		const withTasks = note !== null && count !== null && count.total > 0;
+		const expanded = withTasks && this.expandedNotes.has(note.path);
+		renderMeetingRow({
+			parent,
+			meeting,
+			calendar,
+			hasNote: Boolean(note),
+			tasks: withTasks
+				? {
+						open: count.open,
+						expanded,
+						onToggle: () => {
+							if (expanded) this.expandedNotes.delete(note.path);
+							else this.expandedNotes.add(note.path);
+							this.render();
+						},
+					}
+				: undefined,
+			timeFormat: this.plugin.settings.timeFormat,
+			onActivate: (m) => this.activate(m),
+			onContextMenu: (m, evt) => this.showContextMenu(m, evt),
+		});
+		if (!withTasks) return;
+		this.taskNotes.add(note.path);
+		if (expanded) this.renderTaskList(parent, sidebarTasks.tasks(note) ?? [], false);
+	}
+
+	private renderTaskList(
+		parent: HTMLElement,
+		tasks: SidebarTask[],
+		withNote: boolean
+	): void {
+		const list = parent.createDiv({ cls: "meetings-plus-tasks" });
+		for (const task of tasks) {
+			const item = list.createDiv({ cls: "meetings-plus-task" });
+			if (task.done) item.addClass("meetings-plus-task-done");
+			const box = item.createEl("input", {
+				type: "checkbox",
+				cls: "task-list-item-checkbox",
+			});
+			box.checked = task.done;
+			box.addEventListener("click", () => {
+				void this.toggleTask(task);
+			});
+			item.createSpan({ cls: "meetings-plus-task-text", text: task.text });
+			if (!withNote) continue;
+			const link = item.createEl("a", {
+				cls: "meetings-plus-task-note",
+				text: task.file.basename,
+			});
+			link.addEventListener("click", () => {
+				const anchor = task.blockId ? `#^${task.blockId}` : "";
+				void this.app.workspace.openLinkText(task.file.path + anchor, "", false);
 			});
 		}
+	}
+
+	/** The "Open tasks" section, and the read of any note text the lists still need. */
+	private renderOpenTasks(parent: HTMLElement): void {
+		const sidebarTasks = this.plugin.sidebarTasks;
+		if (!sidebarTasks.enabled()) return;
+		const days = Math.max(1, this.plugin.settings.harvestOpenTasksDays);
+		const { tasks, more } = sidebarTasks.openTasks(days);
+		if (tasks.length > 0) {
+			const section = parent.createDiv({ cls: "meetings-plus-open-tasks" });
+			section
+				.createDiv({ cls: "meetings-plus-day-header" })
+				.createSpan({ cls: "meetings-plus-day-label", text: "Open tasks" });
+			this.renderTaskList(section, tasks, true);
+			if (more > 0) {
+				section.createDiv({
+					cls: "meetings-plus-tasks-more",
+					text: `and ${more} more`,
+				});
+			}
+			for (const task of tasks) this.taskNotes.add(task.file.path);
+		}
+		void sidebarTasks.load().then((read) => {
+			if (read) this.render();
+		});
+	}
+
+	private async toggleTask(task: SidebarTask): Promise<void> {
+		try {
+			await this.plugin.sidebarTasks.toggle(task);
+		} catch (e) {
+			console.warn("[Meetings Plus] could not tick task", task.file.path, e);
+			new Notice(`${PLUGIN_NAME}: could not update ${task.file.basename}`);
+		}
+		this.render();
 	}
 
 	private renderEmptyRun(parent: HTMLElement, count: number): void {

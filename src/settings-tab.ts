@@ -23,7 +23,8 @@ type NumericKey =
 	| "requestTimeoutSeconds"
 	| "lookAheadDays"
 	| "lookBackDays"
-	| "notificationLeadMinutes";
+	| "notificationLeadMinutes"
+	| "harvestOpenTasksDays";
 
 type BooleanKey =
 	| "enableNotifications"
@@ -214,6 +215,29 @@ export class MeetingsPlusSettingTab extends PluginSettingTab {
 			containerEl
 		);
 		new Setting(containerEl)
+			.setName("Show tasks in the sidebar")
+			.setDesc(
+				"Show each meeting note's open tasks under its meeting, and a list of open tasks at the bottom. Ticking a task there ticks it in the note."
+			)
+			.addToggle((t) =>
+				t.setValue(settings.harvestSidebarTasks).onChange(async (v) => {
+					settings.harvestSidebarTasks = v;
+					await this.plugin.saveSettings();
+					refreshViews();
+					redraw();
+				})
+			);
+		if (settings.harvestSidebarTasks) {
+			this.numberField(
+				"Open tasks: days back",
+				"How many days back the list of open tasks looks for changed notes.",
+				"harvestOpenTasksDays",
+				1,
+				undefined,
+				containerEl
+			);
+		}
+		new Setting(containerEl)
 			.setName("Harvest automatically from")
 			.setDesc(
 				"Which notes are harvested when you leave them and by the command for all notes in scope. The sidebar button and the command for this note work on any note."
@@ -377,9 +401,10 @@ export class MeetingsPlusSettingTab extends PluginSettingTab {
 		desc: string,
 		key: NumericKey,
 		min = 1,
-		max?: number
+		max?: number,
+		parent: HTMLElement = this.containerEl
 	): void {
-		new Setting(this.containerEl)
+		new Setting(parent)
 			.setName(name)
 			.setDesc(desc)
 			.addText((t) => {
