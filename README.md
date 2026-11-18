@@ -213,7 +213,7 @@ While a meeting runs, write action items and open questions as you go. Harvest c
 
 - Each `T:` line becomes a checkbox on the same line, with a block ID at the end: `- [ ] Send the revised budget @Anna 📅 2026-11-14 ^mp-t3k9a2`. The ID marks the line as harvested, so harvesting again changes nothing.
 - `Q:` and `A:` lines stay as they are.
-- The note's properties get `open_tasks_count`, `open_questions` and `open_questions_count` (and `things_count`, for tasks sent to Things in a later version). They are recounted on every harvest. A note with nothing to harvest gets no properties.
+- The note's properties get `open_tasks_count`, `open_tasks` (the open task titles, without dates and IDs), `open_questions` and `open_questions_count` (and `things_count`, for tasks sent to Things in a later version). They are recounted on every harvest. A note with nothing to harvest gets no properties.
 - Nothing else in the note is touched.
 
 With **Count plain checkboxes as tasks** on, open `- [ ]` lines you typed yourself also get a block ID and are counted.
@@ -230,7 +230,7 @@ With **Count plain checkboxes as tasks** on, open `- [ ]` lines you typed yourse
 
 Harvested tasks are ordinary checkboxes in the meeting note, so [Tasks Plus](https://github.com/jabaho9523/obsidian-tasks-plus) and Obsidian Tasks show them without a copy. Ticking one there or in the note is the same edit.
 
-The command **Create meetings overview** writes `Meetings overview.base` (in the first scope folder, or the vault root) and opens it. It lists notes, not lines, in three views: **Open tasks**, **Open questions** and **Sent to Things**. An existing file is opened, never overwritten. Bases need Obsidian 1.9 or later and the Bases core plugin; the rest of Harvest works on older versions.
+The command **Create meetings overview** writes `Meetings overview.base` (in the first scope folder, or the vault root) and opens it. It lists notes, not lines, in three views: **Open tasks**, **Open questions** and **Sent to Things**. The **Open tasks** view has a column with the task titles. An existing file is opened, never overwritten, so an overview made before 0.8.0 keeps its old columns: add the `open_tasks` property to its view, or delete the file and run the command again. Bases need Obsidian 1.9 or later and the Bases core plugin; the rest of Harvest works on older versions.
 
 ## Settings
 
