@@ -740,11 +740,32 @@ function describeRecurrence(rrule: unknown): string {
 
 	const byday = rule.parts?.["BYDAY"];
 	if (Array.isArray(byday) && byday.length > 0) {
+		// With a single weekday, a single BYSETPOS is the same as an ordinal
+		// on BYDAY itself (BYDAY=TU;BYSETPOS=2 is BYDAY=2TU).
+		const bysetpos = rule.parts?.["BYSETPOS"];
+		const setpos =
+			byday.length === 1 &&
+			Array.isArray(bysetpos) &&
+			bysetpos.length === 1
+				? Number(bysetpos[0])
+				: 0;
+		let ordinal = false;
 		const days = byday
-			.map((d) => asString(d).toUpperCase().replace(/^[+-]?\d+/, ""))
-			.map((d) => WEEKDAY_LABEL[d] ?? "")
+			.map((d) => {
+				const m = /^([+-]?\d+)?([A-Z]{2})$/.exec(
+					asString(d).trim().toUpperCase()
+				);
+				const label = m ? WEEKDAY_LABEL[m[2] ?? ""] : undefined;
+				if (!m || !label) return "";
+				const nth = m[1] ? Number(m[1]) : setpos;
+				if (!nth) return label;
+				ordinal = true;
+				return `${ordinalLabel(nth)} ${label}`;
+			})
 			.filter(Boolean);
-		if (days.length > 0) text += ` on ${days.join(", ")}`;
+		if (days.length > 0) {
+			text += ` on ${ordinal ? "the " : ""}${days.join(", ")}`;
+		}
 	}
 	if (typeof rule.count === "number" && rule.count > 0) {
 		text += `, ${rule.count} times`;
@@ -752,6 +773,18 @@ function describeRecurrence(rrule: unknown): string {
 	const until = asDate(rule.until);
 	if (until) text += `, until ${localDateKey(until)}`;
 	return text;
+}
+
+/** 1 -> "1st", 2 -> "2nd", -1 -> "last", -2 -> "2nd-to-last". */
+function ordinalLabel(n: number): string {
+	if (n === -1) return "last";
+	const abs = Math.abs(n);
+	const tens = abs % 100;
+	const suffix =
+		tens >= 11 && tens <= 13
+			? "th"
+			: (["th", "st", "nd", "rd"][abs % 10] ?? "th");
+	return n < 0 ? `${abs}${suffix}-to-last` : `${abs}${suffix}`;
 }
 
 function asString(value: unknown): string {
