@@ -17,6 +17,11 @@ import { updateDailyNote } from "./notes/daily-note";
 import { PreMeetingScheduler } from "./notifications/pre-meeting";
 import { NoteIndex } from "./notes/duplicate-detector";
 import { hideSectionMarkers } from "./editor/hide-markers";
+import {
+	harvestLines,
+	harvestPrefixPostProcessor,
+	HarvestLineOptions,
+} from "./editor/harvest-lines";
 import { Harvester } from "./harvest/harvester";
 
 export default class MeetingsPlusPlugin extends Plugin {
@@ -163,6 +168,18 @@ export default class MeetingsPlusPlugin extends Plugin {
 
 		this.registerEditorExtension(
 			hideSectionMarkers(() => this.settings.hideSectionMarkers)
+		);
+
+		const harvestLineOptions = (): HarvestLineOptions => ({
+			enabled: this.settings.harvestEnabled,
+			prefixes: [
+				this.settings.harvestQuestionPrefix.trim(),
+				this.settings.harvestAnswerPrefix.trim(),
+			],
+		});
+		this.registerEditorExtension(harvestLines(harvestLineOptions));
+		this.registerMarkdownPostProcessor(
+			harvestPrefixPostProcessor(harvestLineOptions)
 		);
 
 		this.manager.events.on("refresh:completed", () => {

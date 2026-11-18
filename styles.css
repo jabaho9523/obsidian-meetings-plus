@@ -711,3 +711,9 @@
 		min-width: auto;
 	}
 }
+
+.meetings-plus-harvest-prefix {
+	color: var(--text-muted);
+	font-size: 0.85em;
+	letter-spacing: 0.05em;
+}
