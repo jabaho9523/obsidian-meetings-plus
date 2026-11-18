@@ -717,3 +717,36 @@
 	font-size: 0.85em;
 	letter-spacing: 0.05em;
 }
+
+.meetings-plus-whats-new-notes h3 {
+	margin-top: 1.2em;
+	margin-bottom: 0.4em;
+}
+
+.meetings-plus-whats-new-notes h3:first-child {
+	margin-top: 0;
+}
+
+.meetings-plus-whats-new-support {
+	margin-top: 1.5em;
+	padding-top: 1em;
+	border-top: 1px solid var(--background-modifier-border);
+	text-align: center;
+}
+
+.meetings-plus-coffee-button {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	background-color: #ffdd00;
+	color: #000000;
+	font-weight: var(--font-semibold);
+}
+
+.meetings-plus-coffee-button:hover {
+	background-color: #ffe94d;
+}
+
+.meetings-plus-coffee-icon {
+	display: inline-flex;
+}
