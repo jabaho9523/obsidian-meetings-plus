@@ -162,6 +162,12 @@ export class Harvester {
 	): Promise<{ result: HarvestResult; changed: boolean }> {
 		const { vault } = this.plugin.app;
 		const options = this.options();
+		for (const leaf of this.plugin.app.workspace.getLeavesOfType("markdown")) {
+			const view = leaf.view;
+			if (view instanceof MarkdownView && view.file?.path === file.path) {
+				await view.save();
+			}
+		}
 		const before = await vault.read(file);
 		let result = harvestNote(before, options);
 		if (result.text === before) return { result, changed: false };
