@@ -22,12 +22,18 @@ export class WhatsNewModal extends Modal {
 		this.component.load();
 
 		const body = contentEl.createDiv({ cls: "meetings-plus-whats-new-notes" });
-		if (this.notes.length === 0) {
+		const [newest, ...older] = this.notes;
+		if (!newest) {
 			body.createEl("p", { text: "No release notes for this version." });
-		}
-		for (const [version, text] of this.notes) {
-			body.createEl("h3", { text: version });
+		} else {
+			body.createEl("h3", { text: newest[0] });
 			const section = body.createDiv();
+			void MarkdownRenderer.render(this.app, linkHandles(newest[1]), section, "", this.component);
+		}
+		for (const [version, text] of older) {
+			const details = body.createEl("details");
+			details.createEl("summary", { text: version });
+			const section = details.createDiv();
 			void MarkdownRenderer.render(this.app, linkHandles(text), section, "", this.component);
 		}
 		body.addEventListener("click", (evt) => {

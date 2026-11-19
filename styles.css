@@ -786,6 +786,11 @@
 	letter-spacing: 0.05em;
 }
 
+.meetings-plus-whats-new-notes {
+	max-height: 60vh;
+	overflow-y: auto;
+}
+
 .meetings-plus-whats-new-notes h3 {
 	margin-top: 1.2em;
 	margin-bottom: 0.4em;
@@ -795,14 +800,32 @@
 	margin-top: 0;
 }
 
+.meetings-plus-whats-new-notes details {
+	margin-top: 0.8em;
+}
+
+.meetings-plus-whats-new-notes summary {
+	cursor: pointer;
+	font-weight: var(--font-semibold);
+}
+
 .meetings-plus-whats-new-support {
-	margin-top: 1.5em;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px 16px;
+	margin-top: 1em;
 	padding-top: 1em;
 	border-top: 1px solid var(--background-modifier-border);
-	text-align: center;
+}
+
+.meetings-plus-whats-new-support p {
+	margin: 0;
 }
 
 .meetings-plus-coffee-button {
+	flex-shrink: 0;
 	display: inline-flex;
 	align-items: center;
 	gap: 8px;
