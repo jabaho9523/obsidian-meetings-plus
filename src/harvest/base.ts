@@ -10,8 +10,6 @@ export const OVERVIEW_BASE = `properties:
     displayName: Open questions
   note.open_questions:
     displayName: Questions
-  note.things_count:
-    displayName: In Things
 views:
   - type: table
     name: Open tasks
@@ -33,13 +31,4 @@ views:
       - note.date
       - note.open_questions_count
       - note.open_questions
-  - type: table
-    name: Sent to Things
-    filters:
-      and:
-        - "note.things_count > 0"
-    order:
-      - file.name
-      - note.date
-      - note.things_count
 `;
