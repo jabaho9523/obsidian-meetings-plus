@@ -56,7 +56,7 @@ export interface HarvestCounts {
 }
 
 const LINE = /^([ \t]*)((?:[-*+]|\d+[.)])[ \t]+)?(.*)$/;
-const BLOCK_ID = /(?:^|[ \t])\^([A-Za-z0-9-]+)[ \t]*$/;
+export const BLOCK_ID = /(?:^|[ \t])\^([A-Za-z0-9-]+)[ \t]*$/;
 const CHECKBOX = /^\[(.)\](?:[ \t]+(.*))?$/;
 const THINGS = /^→[ \t]+(.*?)[ \t]*\[Things\]\(things:\/\/\/show\?id=([^)\s]+)\)$/;
 const FENCE = /^[ \t]*(`{3,}|~{3,})(.*)$/;
@@ -276,17 +276,28 @@ export function openQuestions(items: HarvestItem[]): string[] {
 		.map((item) => item.text);
 }
 
+function isOpenTask(item: HarvestItem): boolean {
+	return (
+		item.kind === "task" &&
+		((item.form === "checkbox" && !item.done) ||
+			(item.form === "plain" && item.blockId !== null))
+	);
+}
+
+/** Titles of the open harvested tasks, without the date markers. */
+export function openTasks(items: HarvestItem[]): string[] {
+	return items
+		.filter(isOpenTask)
+		.map((item) => item.text.replace(DATE_MARKERS, "").trim());
+}
+
 export function counts(items: HarvestItem[]): HarvestCounts {
 	const tasks = items.filter((item) => item.kind === "task");
 	return {
 		unharvested: tasks.filter(
 			(item) => item.form === "prefix" || (item.form === "plain" && !item.blockId),
 		).length,
-		openTasks: tasks.filter(
-			(item) =>
-				(item.form === "checkbox" && !item.done) ||
-				(item.form === "plain" && item.blockId !== null),
-		).length,
+		openTasks: tasks.filter(isOpenTask).length,
 		things: tasks.filter((item) => item.form === "things").length,
 		openQuestions: openQuestions(items).length,
 	};

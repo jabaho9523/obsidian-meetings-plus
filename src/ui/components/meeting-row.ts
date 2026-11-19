@@ -7,6 +7,8 @@ export interface MeetingRowOptions {
 	meeting: Meeting;
 	calendar: CalendarConfig | undefined;
 	hasNote: boolean;
+	/** The note's tasks; left out when it has none or tasks are off */
+	tasks?: { open: number; expanded: boolean; onToggle: () => void };
 	timeFormat: TimeFormat;
 	onActivate: (meeting: Meeting) => void;
 	onContextMenu: (meeting: Meeting, evt: MouseEvent) => void;
@@ -47,6 +49,18 @@ export function renderMeetingRow(opts: MeetingRowOptions): void {
 	}
 
 	const trail = row.createDiv({ cls: "meetings-plus-row-trail" });
+	const tasks = opts.tasks;
+	if (tasks) {
+		const toggle = trail.createSpan({
+			cls: "meetings-plus-row-tasks",
+			text: `${tasks.open} open`,
+			attr: { "aria-label": tasks.expanded ? "Hide tasks" : "Show tasks" },
+		});
+		toggle.addEventListener("click", (evt) => {
+			evt.stopPropagation();
+			tasks.onToggle();
+		});
+	}
 	if (hasNote) {
 		const icon = trail.createSpan({
 			cls: "meetings-plus-row-icon",

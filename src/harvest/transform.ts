@@ -1,11 +1,13 @@
 // Harvest of one note as a text transform (no Obsidian imports).
 
 import {
+	BLOCK_ID,
 	HarvestCounts,
 	HarvestPrefixes,
 	counts,
 	newBlockId,
 	openQuestions,
+	openTasks,
 	parseHarvest,
 	toCheckboxLine,
 } from "./parse";
@@ -21,12 +23,13 @@ export interface HarvestResult {
 	/** Lines turned into checkboxes or given a block id in this run */
 	converted: number;
 	counts: HarvestCounts;
+	openTasks: string[];
 	openQuestions: string[];
 }
 
 type Line = [text: string, eol: string];
 
-function splitLines(text: string): Line[] {
+export function splitLines(text: string): Line[] {
 	const parts = text.split(/(\r?\n)/);
 	const lines: Line[] = [];
 	for (let i = 0; i < parts.length; i += 2) {
@@ -35,11 +38,9 @@ function splitLines(text: string): Line[] {
 	return lines;
 }
 
-function joinLines(lines: Line[]): string {
+export function joinLines(lines: Line[]): string {
 	return lines.map(([text, eol]) => text + eol).join("");
 }
-
-const ANY_BLOCK_ID = /(?:^|[ \t])\^([A-Za-z0-9-]+)[ \t]*$/;
 
 function unusedId(taken: Set<string>): string {
 	let id = newBlockId();
@@ -106,18 +107,48 @@ function setProperties(
 	return out;
 }
 
+interface Recount {
+	lines: Line[];
+	counts: HarvestCounts;
+	openTasks: string[];
+	openQuestions: string[];
+}
+
+function recount(lines: Line[], options: HarvestOptions): Recount {
+	const items = parseHarvest(
+		joinLines(lines),
+		options.prefixes,
+		options.plainCheckboxes
+	);
+	const totals = counts(items);
+	const tasks = openTasks(items);
+	const questions = openQuestions(items);
+	return {
+		lines: setProperties(lines, [
+			["open_tasks_count", totals.openTasks],
+			["open_tasks", tasks],
+			["things_count", totals.things],
+			["open_questions", questions],
+			["open_questions_count", totals.openQuestions],
+		]),
+		counts: totals,
+		openTasks: tasks,
+		openQuestions: questions,
+	};
+}
+
 /**
  * Harvest one note: unharvested task lines become checkboxes with a block id
- * (each line keeps its own line ending), then the counts and open questions
- * go into the front matter. Nothing else in the note changes.
+ * (each line keeps its own line ending), then the counts, open tasks and open
+ * questions go into the front matter. Nothing else in the note changes.
  */
 export function harvestNote(text: string, options: HarvestOptions): HarvestResult {
 	const { prefixes, plainCheckboxes } = options;
-	let lines = splitLines(text);
+	const lines = splitLines(text);
 
 	const taken = new Set<string>();
 	for (const [line] of lines) {
-		const id = ANY_BLOCK_ID.exec(line)?.[1];
+		const id = BLOCK_ID.exec(line)?.[1];
 		if (id) taken.add(id);
 	}
 
@@ -133,21 +164,18 @@ export function harvestNote(text: string, options: HarvestOptions): HarvestResul
 		converted++;
 	}
 
-	const items = parseHarvest(joinLines(lines), prefixes, plainCheckboxes);
-	const totals = counts(items);
-	const questions = openQuestions(items);
-	lines = setProperties(lines, [
-		["open_tasks_count", totals.openTasks],
-		["things_count", totals.things],
-		["open_questions", questions],
-		["open_questions_count", totals.openQuestions],
-	]);
-
-	const result = joinLines(lines);
+	const counted = recount(lines, options);
+	const result = joinLines(counted.lines);
 	return {
 		text: result === text ? text : result,
 		converted,
-		counts: totals,
-		openQuestions: questions,
+		counts: counted.counts,
+		openTasks: counted.openTasks,
+		openQuestions: counted.openQuestions,
 	};
+}
+
+/** The note with its Harvest properties brought up to date; no line is converted. */
+export function recountNote(text: string, options: HarvestOptions): string {
+	return joinLines(recount(splitLines(text), options).lines);
 }
