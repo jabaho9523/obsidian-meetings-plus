@@ -191,7 +191,7 @@ A note found this way opens where it is. If it is another app's note, Meetings P
 
 New notes follow HyperCap's file-name rule: characters not allowed in file names become spaces, leading dots and spaces are removed, names are capped at 200 bytes, and copies are numbered ` (2)` to ` (9)`. If all of those exist, Meetings Plus shows a notice and creates nothing.
 
-Symlinked folders, symlinked notes, and notes with more than one hard link are skipped on desktop only. Mobile has no way to check for them, so they are not skipped there.
+Symlinked folders, symlinked notes, and notes with more than one hard link are treated like any other note in the folder.
 
 **Known limit:** renaming or moving a meeting after its note exists makes a new note the next time you open it.
 

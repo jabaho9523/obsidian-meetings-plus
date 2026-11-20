@@ -1,7 +1,5 @@
 import {
-	FileSystemAdapter,
 	FrontMatterCache,
-	Platform,
 	Plugin,
 	TFile,
 	normalizePath,
@@ -22,8 +20,6 @@ import {
 	sameSlot,
 	startKey,
 } from "./foreign-match";
-
-type Lstat = typeof import("fs/promises").lstat;
 
 interface IndexedMeta {
 	dedupKey?: string;
@@ -58,7 +54,6 @@ export class NoteIndex {
 	private fileToMeta = new Map<string, IndexedMeta>();
 	/** First "# " line per note, read from the file text on demand. */
 	private headings = new Map<string, string>();
-	private lstat: Lstat | null | undefined;
 	private initialized = false;
 
 	constructor(private readonly plugin: Plugin) {
@@ -336,21 +331,18 @@ export class NoteIndex {
 		return pickSingle(matches);
 	}
 
-	/** Contract step 1 for the creation path: scans the folder, skips links. */
-	async findNoteByUidAndDateVerified(
+	/** Contract step 1 for the creation path: scans the folder. */
+	findNoteByUidAndDateVerified(
 		uid: string,
 		date: string,
 		folder: string
-	): Promise<TFile | null> {
+	): TFile | null {
 		const matches = this.scanFolder(
 			folder,
 			(fm) => fm["meeting_uid"] === uid && dateKey(fm["date"]) === date
 		);
-		for (const file of matches) {
-			this.reindex(file);
-			if (!(await this.isLinked(file, folder))) return file;
-		}
-		return null;
+		for (const file of matches) this.reindex(file);
+		return matches[0] ?? null;
 	}
 
 	/** Contract steps 2 and 3 for the creation path, headings from the text. */
@@ -369,7 +361,6 @@ export class NoteIndex {
 		const matches: TFile[] = [];
 		for (const file of slot) {
 			this.reindex(file);
-			if (await this.isLinked(file, folder)) continue;
 			const heading = firstHeading(await this.plugin.app.vault.read(file));
 			this.headings.set(file.path, heading);
 			if (sameNameOrHeading({ fileName: file.name, heading }, meeting)) {
@@ -377,53 +368,5 @@ export class NoteIndex {
 			}
 		}
 		return pickSingle(matches);
-	}
-
-	/**
-	 * Node's lstat through the desktop app's CommonJS require, loaded
-	 * once on desktop. Null on mobile or when it can't be loaded.
-	 */
-	private loadLstat(): Lstat | null {
-		if (this.lstat !== undefined) return this.lstat;
-		this.lstat = null;
-		if (Platform.isDesktop && Platform.isDesktopApp) {
-			try {
-				this.lstat = (
-					window.require("fs/promises") as typeof import("fs/promises")
-				).lstat;
-			} catch (e) {
-				console.warn(
-					"[Meetings Plus] Node fs unavailable, skipping the symlink and hard-link check",
-					e
-				);
-			}
-		}
-		return this.lstat;
-	}
-
-	/**
-	 * Whether a folder below `folder` on the way to the note, or the note
-	 * itself, is a symlink, or the note has more than one hard link. The vault
-	 * API reports neither; this checks on desktop only, mobile can't.
-	 */
-	private async isLinked(file: TFile, folder: string): Promise<boolean> {
-		const adapter = this.plugin.app.vault.adapter;
-		if (!(adapter instanceof FileSystemAdapter)) return false;
-		const lstat = this.loadLstat();
-		if (!lstat) return false;
-		const root = folder.replace(/^\/+|\/+$/g, "");
-		const parts = (root ? file.path.slice(root.length + 1) : file.path).split("/");
-		let path = root;
-		try {
-			for (let i = 0; i < parts.length; i++) {
-				path = path ? `${path}/${parts[i] ?? ""}` : (parts[i] ?? "");
-				const stat = await lstat(adapter.getFullPath(path));
-				if (stat.isSymbolicLink()) return true;
-				if (i === parts.length - 1 && stat.nlink > 1) return true;
-			}
-		} catch {
-			return true;
-		}
-		return false;
 	}
 }

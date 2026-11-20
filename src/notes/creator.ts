@@ -58,11 +58,8 @@ export async function createOrOpenMeetingNote(
 	const facts = meetingFacts(meeting, calendar);
 	const folder = notesFolder(calendar);
 	const matched =
-		(await noteIndex.findNoteByUidAndDateVerified(
-			meeting.uid,
-			facts.date,
-			folder
-		)) ?? (await noteIndex.findForeignNoteVerified(facts, folder));
+		noteIndex.findNoteByUidAndDateVerified(meeting.uid, facts.date, folder) ??
+		(await noteIndex.findForeignNoteVerified(facts, folder));
 	if (matched) {
 		if (
 			!noteIndex.isOwn(matched, calendarIds) &&
