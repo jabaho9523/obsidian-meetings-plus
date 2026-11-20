@@ -88,7 +88,6 @@ export function buildRowContextMenu(
 	handlers: {
 		onCreateOrOpen: () => void;
 		onOpenLink: (() => void) | null;
-		onCopyLink: (() => void) | null;
 		onSkip: () => void;
 	}
 ): Menu {
@@ -105,14 +104,6 @@ export function buildRowContextMenu(
 				.setTitle("Open meeting link")
 				.setIcon("video")
 				.onClick(handlers.onOpenLink!)
-		);
-	}
-	if (handlers.onCopyLink) {
-		menu.addItem((item) =>
-			item
-				.setTitle("Copy meeting link")
-				.setIcon("copy")
-				.onClick(handlers.onCopyLink!)
 		);
 	}
 	menu.addSeparator();

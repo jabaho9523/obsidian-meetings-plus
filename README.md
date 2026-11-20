@@ -91,7 +91,7 @@ Outlook's published calendar links currently don't include attendees or the orga
 
 - Click the **ribbon icon** to open the sidebar, or run **Meetings Plus: Open dashboard**
 - **Single click** on a meeting row → create or open the meeting note
-- **Right-click** for a context menu: open meeting link, copy link, or hide for today
+- **Right-click** for a context menu: open meeting link or hide for today
 - **Commands** (via the command palette):
   - Meetings Plus: Open dashboard
   - Meetings Plus: Refresh all calendars
