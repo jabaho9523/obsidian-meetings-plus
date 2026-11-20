@@ -91,7 +91,7 @@ Outlook's published calendar links currently don't include attendees or the orga
 
 - Click the **ribbon icon** to open the sidebar, or run **Meetings Plus: Open dashboard**
 - **Single click** on a meeting row → create or open the meeting note
-- **Right-click** for a context menu: open meeting link, copy link, or hide for today
+- **Right-click** for a context menu: open meeting link or hide for today
 - **Commands** (via the command palette):
   - Meetings Plus: Open dashboard
   - Meetings Plus: Refresh all calendars
@@ -191,7 +191,7 @@ A note found this way opens where it is. If it is another app's note, Meetings P
 
 New notes follow HyperCap's file-name rule: characters not allowed in file names become spaces, leading dots and spaces are removed, names are capped at 200 bytes, and copies are numbered ` (2)` to ` (9)`. If all of those exist, Meetings Plus shows a notice and creates nothing.
 
-Symlinked folders, symlinked notes, and notes with more than one hard link are skipped on desktop only. Mobile has no way to check for them, so they are not skipped there.
+Symlinked folders, symlinked notes, and notes with more than one hard link are treated like any other note in the folder.
 
 **Known limit:** renaming or moving a meeting after its note exists makes a new note the next time you open it.
 
@@ -284,6 +284,8 @@ Everything is local and offline except the ICS fetches themselves. There are no 
 ## Privacy
 
 Meetings Plus only talks to the calendar URLs you configure. It does not collect, log, or transmit calendar contents, attendee names, meeting titles, or fetch URLs anywhere else. There is no analytics layer.
+
+Base64 is only used to send the username and password for calendar feeds that need Basic auth.
 
 ## Performance notes
 

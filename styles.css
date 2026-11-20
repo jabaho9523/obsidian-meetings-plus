@@ -239,8 +239,9 @@
 
 .meetings-plus-row {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
-	gap: 10px;
+	gap: 4px 10px;
 	padding: 8px 10px;
 	min-height: 44px;
 	border-bottom: 1px solid var(--background-modifier-border);
@@ -275,8 +276,9 @@
 	flex-shrink: 0;
 }
 
+/* The title keeps 8em; in a narrow sidebar the trail wraps below it. */
 .meetings-plus-row-main {
-	flex: 1;
+	flex: 1 1 8em;
 	min-width: 0;
 }
 
@@ -300,6 +302,11 @@
 	gap: 4px;
 	color: var(--text-muted);
 	flex-shrink: 0;
+	margin-left: auto;
+}
+
+.meetings-plus-row-trail:empty {
+	display: none;
 }
 
 .meetings-plus-row-icon {

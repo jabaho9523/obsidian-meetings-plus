@@ -589,12 +589,6 @@ export class MeetingsPlusView extends ItemView {
 			onOpenLink: meeting.meetingUrl
 				? () => this.openLink(meeting)
 				: null,
-			onCopyLink: meeting.meetingUrl
-				? () => {
-						void navigator.clipboard.writeText(meeting.meetingUrl);
-						new Notice("Meeting link copied");
-					}
-				: null,
 			onSkip: () => {
 				const until = endOfDay(new Date()).getTime();
 				this.plugin.settings.skippedToday.push({
