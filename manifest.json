@@ -1,7 +1,7 @@
 {
 	"id": "meetings-plus",
 	"name": "Meetings Plus",
-	"version": "0.8.0",
+	"version": "0.8.1",
 	"minAppVersion": "1.7.2",
 	"description": "Subscribe to your calendars and create meeting notes from your own template in one click. Works with Outlook, Google, iCloud and any ICS link. Turn T: and Q: lines into tasks and open questions.",
 	"author": "Jacob Holm",
