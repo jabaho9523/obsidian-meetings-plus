@@ -285,6 +285,8 @@ Everything is local and offline except the ICS fetches themselves. There are no 
 
 Meetings Plus only talks to the calendar URLs you configure. It does not collect, log, or transmit calendar contents, attendee names, meeting titles, or fetch URLs anywhere else. There is no analytics layer.
 
+Base64 is only used to send the username and password for calendar feeds that need Basic auth.
+
 ## Performance notes
 
 Background refresh runs at your configured interval (default 15 min); on each refresh, all calendars fetch in parallel. Parsed meetings are cached per calendar so reloads are instant. Pre-meeting `setTimeout`s are cancelled and re-scheduled on every refresh so the schedule stays current.
