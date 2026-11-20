@@ -38,8 +38,9 @@ export function renderMeetingRow(opts: MeetingRowOptions): void {
 	});
 	const metaParts: string[] = [];
 	if (meeting.location) metaParts.push(meeting.location);
-	if (meeting.attendees.length > 0) {
-		metaParts.push(`${meeting.attendees.length} attendees`);
+	const attendees = meeting.attendees.length;
+	if (attendees > 0) {
+		metaParts.push(`${attendees} ${attendees === 1 ? "attendee" : "attendees"}`);
 	}
 	if (metaParts.length > 0) {
 		main.createDiv({
