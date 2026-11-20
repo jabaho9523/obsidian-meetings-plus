@@ -2,7 +2,7 @@
 
 **Subscribe to your calendar, click a meeting, get a pre-filled note.** No drag-and-drop, no Outlook open in the background, no export. Your calendar sits next to your notes, and every event is one click from a ready-to-type meeting note in your own vault.
 
-![Meetings Plus](docs/hero.png)
+![Meetings Plus in 26 seconds: the calendar sidebar, a meeting note in one click, T: and Q: lines harvested into tasks and open questions, and the same tasks in Tasks Plus](docs/demo.gif)
 
 ## How it works — 10 seconds
 
