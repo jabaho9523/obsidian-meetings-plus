@@ -3,7 +3,7 @@
 	"name": "Meetings Plus",
 	"version": "0.8.0",
 	"minAppVersion": "1.7.2",
-	"description": "Subscribe to your calendars and create pre-filled meeting notes in one click. ICS-based (Outlook / Google / iCloud), local-markdown, privacy-first — the meeting-notes workflow Notion couldn't give you.",
+	"description": "Subscribe to your calendars and create meeting notes from your own template in one click. Works with Outlook, Google, iCloud and any ICS link. Turn T: and Q: lines into tasks and open questions.",
 	"author": "Jacob Holm",
 	"authorUrl": "https://github.com/jabaho9523",
 	"fundingUrl": "https://www.buymeacoffee.com/jabaho",
