@@ -58,7 +58,9 @@ export class SidebarTasks {
 	/**
 	 * Open harvested tasks (an ^mp- id) from notes in the Harvest folders
 	 * changed in the last `days` days, newest note first. Notes whose text
-	 * isn't loaded yet are left out until load() has run.
+	 * isn't loaded yet are left out until load() has run. The id is read from
+	 * the line: the metadata cache has none for a task with a line such as Q:
+	 * right below it and no blank line between.
 	 */
 	openTasks(days: number): OpenTasks {
 		const cutoff = Date.now() - days * DAY_MS;
@@ -68,19 +70,13 @@ export class SidebarTasks {
 		const tasks: SidebarTask[] = [];
 		let more = 0;
 		for (const file of notes) {
-			const open = this.taskLines(file).filter(
-				({ status, id }) => status === " " && id.startsWith("mp-")
-			);
+			const open = this.taskLines(file).filter(({ status }) => status === " ");
 			if (open.length === 0) continue;
-			if (tasks.length >= MAX_OPEN_TASKS) {
-				more += open.length;
-				continue;
-			}
 			const lines = this.lines(file);
 			if (!lines) continue;
 			for (const { line } of open) {
 				const task = this.taskAt(file, lines, line);
-				if (!task || task.done) continue;
+				if (!task || task.done || !task.blockId?.startsWith("mp-")) continue;
 				if (tasks.length < MAX_OPEN_TASKS) tasks.push(task);
 				else more++;
 			}
@@ -114,16 +110,12 @@ export class SidebarTasks {
 		);
 	}
 
-	private taskLines(file: TFile): { line: number; status: string; id: string }[] {
+	private taskLines(file: TFile): { line: number; status: string }[] {
 		const items = this.plugin.app.metadataCache.getFileCache(file)?.listItems ?? [];
-		const lines: { line: number; status: string; id: string }[] = [];
+		const lines: { line: number; status: string }[] = [];
 		for (const item of items) {
 			if (item.task === undefined) continue;
-			lines.push({
-				line: item.position.start.line,
-				status: item.task,
-				id: item.id ?? "",
-			});
+			lines.push({ line: item.position.start.line, status: item.task });
 		}
 		return lines;
 	}
