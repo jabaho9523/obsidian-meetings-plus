@@ -26,8 +26,8 @@ export interface MeetingsPlusSettings {
 	openDashboardOnStart: boolean;
 	hideSectionMarkers: boolean;
 	showWhatsNew: boolean;
-	/** Version whose "What's new" was last shown; "" until the first load */
-	lastShownVersion: string;
+	/** Written by 0.8.0 and 0.8.1. Now only read, as the fallback when this device has stored no version */
+	lastShownVersion?: string;
 	/** Harvest: T: lines become checkboxes, open Q: lines become properties */
 	harvestEnabled: boolean;
 	harvestTaskPrefix: string;
@@ -177,7 +177,6 @@ export const DEFAULT_SETTINGS: MeetingsPlusSettings = {
 	openDashboardOnStart: false,
 	hideSectionMarkers: true,
 	showWhatsNew: true,
-	lastShownVersion: "",
 	harvestEnabled: false,
 	harvestTaskPrefix: "T:",
 	harvestQuestionPrefix: "Q:",

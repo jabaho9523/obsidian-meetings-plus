@@ -52,6 +52,12 @@ export class MeetingsPlusSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
+		new Setting(containerEl)
+			.setName("Release notes")
+			.setDesc("See what changed in recent updates.")
+			.addButton((b) =>
+				b.setButtonText("Show").onClick(() => this.plugin.showReleaseNotes())
+			);
 		this.numberField(
 			"Refresh interval (minutes)",
 			"How often to fetch calendar feeds in the background.",
@@ -125,7 +131,7 @@ export class MeetingsPlusSettingTab extends PluginSettingTab {
 			);
 		this.toggle(
 			"Show what's new after updates",
-			"Open the release notes once after Meetings Plus updates to a new minor version.",
+			"Open the release notes once on this device, right after an update with notable changes.",
 			"showWhatsNew"
 		);
 

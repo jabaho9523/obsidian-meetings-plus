@@ -17,33 +17,76 @@ export function majorMinor(v: string): string {
 	return p ? `${p[0]}.${p[1]}` : v;
 }
 
+const POPUP_MARKER = /^<!-- popup -->[ \t]*(?:\r?\n|$)/;
+const POPUP_DAYS = 3;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** A release-notes file whose first line is `<!-- popup -->` opens the window. */
+export function hasPopupMarker(text: string): boolean {
+	return POPUP_MARKER.test(text);
+}
+
+export function stripPopupMarker(text: string): string {
+	return text.replace(POPUP_MARKER, "");
+}
+
+/** The version stored on this device; without one, the old data.json value (read only). */
+export function deviceVersion(saved: unknown, lastShownVersion: string | undefined): string {
+	if (typeof saved === "string") return saved;
+	return lastShownVersion ?? "";
+}
+
+/** Newer than `local` when it parses, else the current major.minor line. */
+export function notesToShow(
+	notes: Record<string, string>,
+	local: string,
+	current: string
+): [string, string][] {
+	return parseVersion(local)
+		? notesBetween(notes, local, current)
+		: notesForCurrentLine(notes, current);
+}
+
+export interface StartupInput {
+	/** Version stored on this device, or the data.json fallback */
+	local: string;
+	current: string;
+	enabled: boolean;
+	hadSavedData: boolean;
+	/** mtime of the plugin's manifest.json, null when unknown */
+	installedAt: number | null;
+	now: number;
+	notes: Record<string, string>;
+}
+
 export interface StartupDecision {
 	show: boolean;
-	/** Version to store as lastShownVersion, or null to leave it */
-	store: string | null;
+	/** Version to store on this device */
+	store: string;
 }
 
 /**
- * First install (no saved data) stores the version and shows nothing. Saved
- * data with no stored version is an upgrade from before the window: it shows
- * the window (when enabled) and stores the version. A newer major or minor
- * does the same. Turned off, the version is stored without showing, so
- * turning it on later starts fresh. A patch-only change, or anything
- * unparseable, does nothing.
+ * Shows the window only when one of the notes to show is marked with
+ * `<!-- popup -->`, the vault had saved data (not a first install) and the
+ * update reached this device less than 3 days ago. Always stores the current
+ * version, so it shows at most once per device.
  */
-export function decideOnStartup(
-	stored: string,
-	current: string,
-	enabled: boolean,
-	hadSavedData: boolean
-): StartupDecision {
-	if (stored === "") return { show: hadSavedData && enabled, store: current };
-	const s = parseVersion(stored);
-	const c = parseVersion(current);
-	if (!s || !c) return { show: false, store: null };
-	const newerMinor = c[0] > s[0] || (c[0] === s[0] && c[1] > s[1]);
-	if (!newerMinor) return { show: false, store: null };
-	return { show: enabled, store: current };
+export function decideOnStartup({
+	local,
+	current,
+	enabled,
+	hadSavedData,
+	installedAt,
+	now,
+	notes,
+}: StartupInput): StartupDecision {
+	const hide = { show: false, store: current };
+	if (!enabled) return hide;
+	const marked = notesToShow(notes, local, current).some(([, text]) => hasPopupMarker(text));
+	if (!marked) return hide;
+	if (!hadSavedData) return hide;
+	if (installedAt === null || now - installedAt > POPUP_DAYS * DAY_MS) return hide;
+	return { show: true, store: current };
 }
 
 /** Versions newer than `after` up to and including `upTo`, newest first. */
