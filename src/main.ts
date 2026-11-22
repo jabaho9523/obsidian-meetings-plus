@@ -3,6 +3,7 @@ import {
 	PLUGIN_NAME,
 	RIBBON_ICON,
 	VIEW_TYPE_MEETINGS_PLUS,
+	WHATS_NEW_STORAGE_KEY,
 } from "./constants";
 import {
 	MeetingsPlusSettings,
@@ -26,12 +27,8 @@ import { Harvester } from "./harvest/harvester";
 import { SidebarTasks } from "./harvest/sidebar-tasks";
 import releaseNotes from "release-notes";
 import { WhatsNewModal } from "./ui/whats-new-modal";
-import {
-	decideOnStartup,
-	majorMinor,
-	notesBetween,
-	notesForCurrentLine,
-} from "./whats-new/versions";
+import { majorMinor, notesForCurrentLine } from "./whats-new/versions";
+import { whatsNewOnStartup } from "./whats-new/startup";
 
 export default class MeetingsPlusPlugin extends Plugin {
 	settings!: MeetingsPlusSettings;
@@ -201,15 +198,8 @@ export default class MeetingsPlusPlugin extends Plugin {
 
 		this.addCommand({
 			id: "show-whats-new",
-			name: "Show what's new",
-			callback: () => {
-				const current = this.manifest.version;
-				new WhatsNewModal(
-					this.app,
-					majorMinor(current),
-					notesForCurrentLine(releaseNotes, current)
-				).open();
-			},
+			name: "Show release notes",
+			callback: () => this.showReleaseNotes(),
 		});
 
 		this.app.workspace.onLayoutReady(() => {
@@ -222,28 +212,25 @@ export default class MeetingsPlusPlugin extends Plugin {
 	}
 
 	private async showWhatsNewAfterUpdate(): Promise<void> {
-		const current = this.manifest.version;
-		const stored = this.settings.lastShownVersion;
-		const decision = decideOnStartup(
-			stored,
-			current,
-			this.settings.showWhatsNew,
-			this.hadSavedData
+		const notes = await whatsNewOnStartup(
+			this,
+			WHATS_NEW_STORAGE_KEY,
+			this.settings,
+			this.hadSavedData,
+			releaseNotes
 		);
-		if (decision.show) {
-			// No stored version: an upgrade from before the window existed.
-			const notes =
-				stored === ""
-					? notesForCurrentLine(releaseNotes, current)
-					: notesBetween(releaseNotes, stored, current);
-			if (notes.length > 0) {
-				new WhatsNewModal(this.app, majorMinor(current), notes).open();
-			}
+		if (notes.length > 0) {
+			new WhatsNewModal(this.app, majorMinor(this.manifest.version), notes).open();
 		}
-		if (decision.store !== null) {
-			this.settings.lastShownVersion = decision.store;
-			await this.saveSettings();
-		}
+	}
+
+	showReleaseNotes(): void {
+		const current = this.manifest.version;
+		new WhatsNewModal(
+			this.app,
+			majorMinor(current),
+			notesForCurrentLine(releaseNotes, current)
+		).open();
 	}
 
 	onunload(): void {

@@ -1,6 +1,6 @@
 import { App, Component, MarkdownRenderer, Modal, setIcon } from "obsidian";
 import { PLUGIN_NAME } from "../constants";
-import { linkHandles } from "../whats-new/versions";
+import { linkHandles, stripPopupMarker } from "../whats-new/versions";
 
 export const SUPPORT_URL = "https://www.buymeacoffee.com/jabaho";
 
@@ -28,13 +28,13 @@ export class WhatsNewModal extends Modal {
 		} else {
 			body.createEl("h3", { text: newest[0] });
 			const section = body.createDiv();
-			void MarkdownRenderer.render(this.app, linkHandles(newest[1]), section, "", this.component);
+			void MarkdownRenderer.render(this.app, linkHandles(stripPopupMarker(newest[1])), section, "", this.component);
 		}
 		for (const [version, text] of older) {
 			const details = body.createEl("details");
 			details.createEl("summary", { text: version });
 			const section = details.createDiv();
-			void MarkdownRenderer.render(this.app, linkHandles(text), section, "", this.component);
+			void MarkdownRenderer.render(this.app, linkHandles(stripPopupMarker(text)), section, "", this.component);
 		}
 		body.addEventListener("click", (evt) => {
 			const link = (evt.target as HTMLElement).closest("a");
